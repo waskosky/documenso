@@ -1,5 +1,6 @@
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
+import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { msg } from '@lingui/core/macro';
@@ -53,6 +54,10 @@ export const AppNavDesktop = ({ className, setIsCommandMenuOpen, ...props }: App
       {
         href: `/t/${teamUrl}/templates`,
         label: msg`Templates`,
+      },
+      {
+        href: formatAuthorizationsPath(teamUrl),
+        label: msg`Authorizations`,
       },
     ];
   }, [currentTeam, organisations]);

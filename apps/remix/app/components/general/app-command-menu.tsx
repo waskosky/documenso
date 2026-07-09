@@ -9,6 +9,7 @@ import {
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION, SKIP_QUERY_BATCH_META } from '@documenso/lib/constants/trpc';
 import { dynamicActivate } from '@documenso/lib/utils/i18n';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
+import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { trpc as trpcReact } from '@documenso/trpc/react';
 import { cn } from '@documenso/ui/lib/utils';
 import {
@@ -152,6 +153,19 @@ export function AppCommandMenu({ open, onOpenChange }: AppCommandMenuProps) {
         }))
       : [];
 
+  const authorizationPageLinks = useMemo(() => {
+    if (!teamUrl) {
+      return [];
+    }
+
+    return [
+      {
+        label: msg`Authorizations`,
+        path: formatAuthorizationsPath(teamUrl),
+      },
+    ];
+  }, [currentTeam, organisations]);
+
   const templateSearchResults =
     hasValidSearch && searchTemplatesData
       ? searchTemplatesData.map((template) => ({
@@ -251,6 +265,12 @@ export function AppCommandMenu({ open, onOpenChange }: AppCommandMenuProps) {
               </CommandGroup>
             )}
 
+            {authorizationPageLinks.length > 0 && (
+              <CommandGroup className="mx-2 p-0 pb-2" heading={_(msg`Authorizations`)}>
+                <Commands push={push} pages={authorizationPageLinks} />
+              </CommandGroup>
+            )}
+
             <CommandGroup className="mx-2 p-0 pb-2" heading={_(msg`Settings`)}>
               <Commands push={push} pages={SETTINGS_PAGES} />
             </CommandGroup>
@@ -302,7 +322,12 @@ const Commands = ({
   pages,
 }: {
   push: (_path: string) => void;
-  pages: { label: MessageDescriptor | string; path: string; shortcut?: string; value?: string }[];
+  pages: {
+    label: MessageDescriptor | string;
+    path: string;
+    shortcut?: string;
+    value?: string;
+  }[];
 }) => {
   const { _ } = useLingui();
 
