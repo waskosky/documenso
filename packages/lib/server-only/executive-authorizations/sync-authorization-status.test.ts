@@ -69,6 +69,38 @@ const completed = buildAuthorizationStatusUpdate({
 assert.equal(completed.status, ExecutiveAuthorizationStatus.COMPLETED);
 assert.equal(completed.completedAt?.toISOString(), '2026-07-11T00:00:00.000Z');
 
+const completedFromSignedRecipients = buildAuthorizationStatusUpdate({
+  completedAt: null,
+  envelopeStatus: DocumentStatus.PENDING,
+  recipients: [
+    {
+      email: 'one@example.com',
+      id: 1,
+      name: 'Director One',
+      role: RecipientRole.SIGNER,
+      sendStatus: SendStatus.SENT,
+      signedAt: new Date('2026-07-10T00:00:00.000Z'),
+      signingOrder: 1,
+      signingStatus: SigningStatus.SIGNED,
+      token: 'token-one',
+    },
+    {
+      email: 'two@example.com',
+      id: 2,
+      name: 'Director Two',
+      role: RecipientRole.SIGNER,
+      sendStatus: SendStatus.SENT,
+      signedAt: new Date('2026-07-12T00:00:00.000Z'),
+      signingOrder: 2,
+      signingStatus: SigningStatus.SIGNED,
+      token: 'token-two',
+    },
+  ],
+});
+
+assert.equal(completedFromSignedRecipients.status, ExecutiveAuthorizationStatus.COMPLETED);
+assert.equal(completedFromSignedRecipients.completedAt?.toISOString(), '2026-07-12T00:00:00.000Z');
+
 const rejected = buildAuthorizationStatusUpdate({
   completedAt: null,
   envelopeStatus: DocumentStatus.PENDING,
