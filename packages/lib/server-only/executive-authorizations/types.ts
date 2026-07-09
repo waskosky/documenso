@@ -5,8 +5,13 @@ export type AuthorizationTemplateType = 'BOARD_RESOLUTION';
 export type AuthorizationSigner = {
   email: string;
   name: string;
+  recipientId?: number;
   role: string;
+  sendStatus?: string;
+  signedAt?: string | null;
   signingOrder: number;
+  signingUrl?: string;
+  status?: string;
 };
 
 export type AuthorizationRenderResult = {
