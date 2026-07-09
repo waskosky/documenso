@@ -75,14 +75,19 @@ export const createAuthorizationSigningEnvelope = async ({
     title: authorization.title,
   });
 
-  const { documentData } = await putPdfFileServerSide({
+  const uploadedDocumentData = await putPdfFileServerSide({
     arrayBuffer: async () => Promise.resolve(pdf.bytes),
     name: plan.fileName,
     type: 'application/pdf',
   });
+  const documentData = (
+    'documentData' in uploadedDocumentData ? uploadedDocumentData.documentData : uploadedDocumentData
+  ) as {
+    id: string;
+  };
 
   const envelope = await createEnvelope({
-    bypassDefaultRecipients: true,
+    ...({ bypassDefaultRecipients: true } as Record<string, unknown>),
     data: {
       envelopeItems: [
         {
