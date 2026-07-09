@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { PDF } from '@libpdf/core';
+import { PDFDocument } from '@cantoo/pdf-lib';
 
 import { generateAuthorizationPdf } from './generate-authorization-pdf';
 
@@ -31,7 +31,7 @@ const main = async () => {
     title: 'Approval of SAFE Financing',
   });
 
-  const pdf = await PDF.load(result.bytes);
+  const pdf = await PDFDocument.load(result.bytes);
 
   assert.ok(Buffer.isBuffer(result.bytes));
   assert.ok(result.bytes.length > 500);
