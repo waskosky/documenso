@@ -20,7 +20,19 @@
 - Documenso's current SMTP credentials authenticate successfully, but a real send fails because `noreply@sign.disclosurecomics.com` is not verified in SES `US-WEST-2`.
 - Sending through the same Documenso SMTP account as `info@disclosurecomics.com` also fails because that identity is not verified in `US-WEST-2`.
 - The WordPress SES credentials can be converted to SMTP credentials for `us-east-1` and authenticate, but a real send fails because AWS reports sending is paused for that account.
-- Practical read: there is no code-level email fix to ship until either the Documenso SES account verifies an approved sender/domain or the WordPress SES account has sending unpaused.
+- Initial practical read: there was no safe code-level email fix while only `us-east-1` and the old Documenso SMTP account had been tested. The recovery update below supersedes that: the working production path is the WordPress AWS credential set in SES `us-west-2`.
+
+**Recovery update from 2026-07-09:**
+
+- The server does not have the `aws` CLI installed; SES was inspected through the AWS SDK already available in the Documenso/WordPress environment.
+- The WordPress SES credentials show `EnforcementStatus=SHUTDOWN` only in `us-east-1`.
+- The same WordPress SES credentials show `EnforcementStatus=HEALTHY` in `us-west-2`, with `disclosurecomics.com` verified and DKIM `SUCCESS`.
+- A real SMTP send using the WordPress AWS credentials converted to SES SMTP credentials for `us-west-2` succeeded from `Disclosure Comics <info@disclosurecomics.com>`.
+- WordPress `wp-offload-ses` was switched from `us-east-1` to `us-west-2`; a post-change `wp_mail()` test logged email `24895` as `sent`.
+- Documenso `.env` was switched to the same healthy SES path: `smtp-auth`, `email-smtp.us-west-2.amazonaws.com`, port `465`, sender `Disclosure Comics <info@disclosurecomics.com>`, and the matching SES SMTP/API credentials.
+- The `sign.disclosurecomics.com` Passenger Node process was restarted after the `.env` change.
+- A deployed Documenso mailer-module test verified SMTP and sent successfully from the repaired configuration.
+- Do not move production mail back to SES `us-east-1` unless AWS support clears the shutdown/enforcement state there.
 
 **Files to inspect first:**
 
