@@ -1,4 +1,4 @@
-import { PDF, StandardFonts } from '@libpdf/core';
+import { PDFDocument, PageSizes, StandardFonts } from '@cantoo/pdf-lib';
 
 import type { AuthorizationSigner } from './types';
 
@@ -64,8 +64,9 @@ export const generateAuthorizationPdf = async ({
   signers,
   title,
 }: GenerateAuthorizationPdfOptions): Promise<GenerateAuthorizationPdfResult> => {
-  const pdf = PDF.create();
-  let page = pdf.addPage({ size: 'letter' });
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  let page = pdf.addPage(PageSizes.Letter);
   let y = TOP_Y;
 
   const drawLine = (text: string, options: { size?: number; yGap?: number } = {}) => {
@@ -73,12 +74,12 @@ export const generateAuthorizationPdf = async ({
     const yGap = options.yGap ?? BODY_LINE_HEIGHT;
 
     if (y < BOTTOM_Y + yGap) {
-      page = pdf.addPage({ size: 'letter' });
+      page = pdf.addPage(PageSizes.Letter);
       y = TOP_Y;
     }
 
     page.drawText(text, {
-      font: StandardFonts.Helvetica,
+      font,
       size,
       x: MARGIN_X,
       y,
@@ -107,11 +108,11 @@ export const generateAuthorizationPdf = async ({
     }
   }
 
-  const signaturePage = pdf.addPage({ size: 'letter' });
+  const signaturePage = pdf.addPage(PageSizes.Letter);
   const signaturePageNumber = pdf.getPageCount();
 
   signaturePage.drawText('Director Written Consent Signatures', {
-    font: StandardFonts.Helvetica,
+    font,
     size: 16,
     x: MARGIN_X,
     y: 700,
@@ -119,7 +120,7 @@ export const generateAuthorizationPdf = async ({
   signaturePage.drawText(
     'The undersigned directors approve and adopt the authorization attached above.',
     {
-      font: StandardFonts.Helvetica,
+      font,
       size: 10,
       x: MARGIN_X,
       y: 672,
@@ -130,31 +131,31 @@ export const generateAuthorizationPdf = async ({
     const rowY = 575 - index * 140;
 
     signaturePage.drawText(signer.name || `Director ${index + 1}`, {
-      font: StandardFonts.Helvetica,
+      font,
       size: 11,
       x: MARGIN_X,
       y: rowY,
     });
     signaturePage.drawText('Signature:', {
-      font: StandardFonts.Helvetica,
+      font,
       size: 10,
       x: 184,
       y: rowY,
     });
     signaturePage.drawText('________________________________', {
-      font: StandardFonts.Helvetica,
+      font,
       size: 10,
       x: 248,
       y: rowY,
     });
     signaturePage.drawText('Date:', {
-      font: StandardFonts.Helvetica,
+      font,
       size: 10,
       x: 458,
       y: rowY,
     });
     signaturePage.drawText('____________', {
-      font: StandardFonts.Helvetica,
+      font,
       size: 10,
       x: 492,
       y: rowY,

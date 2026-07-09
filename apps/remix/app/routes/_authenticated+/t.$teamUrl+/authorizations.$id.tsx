@@ -37,7 +37,7 @@ import { appMetaTags } from '~/utils/meta';
 import type { Route } from './+types/authorizations.$id';
 
 export function meta() {
-  return appMetaTags(msg`Authorization`);
+  return appMetaTags(msg`Authorization`.id as never);
 }
 
 const buildRequestMetadata = ({

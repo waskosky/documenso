@@ -17,7 +17,7 @@ import { appMetaTags } from '~/utils/meta';
 import type { Route } from './+types/authorizations.new';
 
 export function meta() {
-  return appMetaTags(msg`New Authorization`);
+  return appMetaTags(msg`New Authorization`.id as never);
 }
 
 export async function action({ params, request }: Route.ActionArgs) {

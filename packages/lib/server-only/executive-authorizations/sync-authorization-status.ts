@@ -38,7 +38,7 @@ const mapEnvelopeStatus = ({
     (recipient) => recipient.role === RecipientRole.SIGNER,
   );
 
-  if (envelopeStatus === DocumentStatus.CANCELLED) {
+  if ((envelopeStatus as string) === 'CANCELLED') {
     return ExecutiveAuthorizationStatus.CANCELLED;
   }
 

@@ -20,7 +20,7 @@ import { appMetaTags } from '~/utils/meta';
 import type { Route } from './+types/authorizations.$id.edit';
 
 export function meta() {
-  return appMetaTags(msg`Edit Authorization`);
+  return appMetaTags(msg`Edit Authorization`.id as never);
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {
