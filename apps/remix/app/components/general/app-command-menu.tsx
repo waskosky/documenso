@@ -23,6 +23,7 @@ import {
 } from '@documenso/lib/constants/trpc';
 import { dynamicActivate } from '@documenso/lib/utils/i18n';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
+import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { trpc as trpcReact } from '@documenso/trpc/react';
 import { cn } from '@documenso/ui/lib/utils';
 import {
@@ -130,6 +131,19 @@ export function AppCommandMenu({ open, onOpenChange }: AppCommandMenuProps) {
         label: msg`All templates`,
         path: `/t/${teamUrl}/templates`,
         shortcut: TEMPLATES_PAGE_SHORTCUT.replace('+', ''),
+      },
+    ];
+  }, [currentTeam, organisations]);
+
+  const authorizationPageLinks = useMemo(() => {
+    if (!teamUrl) {
+      return [];
+    }
+
+    return [
+      {
+        label: msg`Authorizations`,
+        path: formatAuthorizationsPath(teamUrl),
       },
     ];
   }, [currentTeam, organisations]);
@@ -247,6 +261,12 @@ export function AppCommandMenu({ open, onOpenChange }: AppCommandMenuProps) {
             {templatePageLinks.length > 0 && (
               <CommandGroup className="mx-2 p-0 pb-2" heading={_(msg`Templates`)}>
                 <Commands push={push} pages={templatePageLinks} />
+              </CommandGroup>
+            )}
+
+            {authorizationPageLinks.length > 0 && (
+              <CommandGroup className="mx-2 p-0 pb-2" heading={_(msg`Authorizations`)}>
+                <Commands push={push} pages={authorizationPageLinks} />
               </CommandGroup>
             )}
 

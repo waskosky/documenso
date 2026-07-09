@@ -40,6 +40,10 @@ export const formatTemplatesPath = (teamUrl: string) => {
   return `/t/${teamUrl}/templates`;
 };
 
+export const formatAuthorizationsPath = (teamUrl: string) => {
+  return `/t/${teamUrl}/authorizations`;
+};
+
 /**
  * Determines whether a team member can execute a given action.
  *

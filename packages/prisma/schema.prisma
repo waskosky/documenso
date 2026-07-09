@@ -66,13 +66,14 @@ model User {
   folders   Folder[]
   envelopes Envelope[]
 
-  verificationTokens VerificationToken[]
-  apiTokens          ApiToken[]
-  securityAuditLogs  UserSecurityAuditLog[]
-  webhooks           Webhook[]
-  siteSettings       SiteSettings[]
-  passkeys           Passkey[]
-  avatarImage        AvatarImage?           @relation(fields: [avatarImageId], references: [id], onDelete: SetNull)
+  verificationTokens      VerificationToken[]
+  apiTokens               ApiToken[]
+  securityAuditLogs       UserSecurityAuditLog[]
+  webhooks                Webhook[]
+  siteSettings            SiteSettings[]
+  passkeys                Passkey[]
+  executiveAuthorizations ExecutiveAuthorization[]
+  avatarImage             AvatarImage?             @relation(fields: [avatarImageId], references: [id], onDelete: SetNull)
 
   @@index([email])
 }
@@ -223,6 +224,60 @@ model ApiToken {
   user      User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
   teamId    Int
   team      Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+enum ExecutiveAuthorizationStatus {
+  DRAFT
+  READY
+  SENT
+  PARTIALLY_SIGNED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum ExecutiveAuthorizationType {
+  BOARD_RESOLUTION
+  GENERAL_AUTHORIZATION
+}
+
+model ExecutiveAuthorization {
+  id String @id @default(cuid())
+
+  title            String
+  companyLegalName String
+  type             ExecutiveAuthorizationType
+  status           ExecutiveAuthorizationStatus @default(DRAFT)
+  actionDate       DateTime?
+
+  templateKey     String
+  templateVersion Int
+
+  payload          Json
+  signers          Json
+  renderedMarkdown String  @db.Text
+  notes            String? @db.Text
+
+  sentAt      DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  createdByUserId Int
+  createdByUser   User @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  envelopeId String?   @unique
+  envelope   Envelope? @relation(fields: [envelopeId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([type])
+  @@index([actionDate])
+  @@index([createdAt])
 }
 
 enum SubscriptionStatus {
@@ -397,11 +452,12 @@ model Envelope {
   internalVersion         Int
   useLegacyFieldInsertion Boolean @default(false)
 
-  envelopeItems EnvelopeItem[]
-  recipients    Recipient[]
-  fields        Field[]
-  shareLinks    DocumentShareLink[]
-  auditLogs     DocumentAuditLog[]
+  envelopeItems          EnvelopeItem[]
+  recipients             Recipient[]
+  fields                 Field[]
+  shareLinks             DocumentShareLink[]
+  auditLogs              DocumentAuditLog[]
+  executiveAuthorization ExecutiveAuthorization?
 
   // Envelope settings
   authOptions Json? /// [DocumentAuthOptions] @zod.custom.use(ZDocumentAuthOptionsSchema)
@@ -890,11 +946,12 @@ model Team {
 
   profile TeamProfile?
 
-  envelopes  Envelope[]
-  folders    Folder[]
-  apiTokens  ApiToken[]
-  webhooks   Webhook[]
-  teamGroups TeamGroup[]
+  envelopes               Envelope[]
+  folders                 Folder[]
+  apiTokens               ApiToken[]
+  webhooks                Webhook[]
+  teamGroups              TeamGroup[]
+  executiveAuthorizations ExecutiveAuthorization[]
 
   organisationId String
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)

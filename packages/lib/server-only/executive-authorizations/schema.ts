@@ -1,0 +1,64 @@
+import { ExecutiveAuthorizationType } from '@prisma/client';
+import { z } from 'zod';
+
+import type { AuthorizationTemplateKey } from './types';
+
+export const ZAuthorizationTemplateKeySchema = z.enum(['board_resolution_secretary_certificate']);
+
+export const ZBoardDirectorVoteSchema = z.object({
+  email: z.string().email().optional().or(z.literal('')),
+  name: z.string().trim().min(1),
+  presence: z.string().trim().min(1).default('Consented'),
+  vote: z.string().trim().min(1).default('For'),
+});
+
+export const ZBoardResolutionCertificatePayloadSchema = z.object({
+  actionDate: z.string().trim().min(1),
+  actionTitle: z.string().trim().min(1),
+  authorizedOfficerName: z.string().trim().min(1),
+  authorizedOfficerTitle: z.string().trim().min(1),
+  companyLegalName: z.string().trim().min(1),
+  consentMethod: z.string().trim().min(1).default('unanimous written consent'),
+  directors: z.array(ZBoardDirectorVoteSchema).min(1),
+  entityType: z.string().trim().min(1).default('corporation'),
+  investorCondition: z.string().trim().min(1),
+  jurisdiction: z.string().trim().min(1).default('Colorado'),
+  matterDescription: z.string().trim().min(1),
+  materialsReviewed: z.array(z.string().trim().min(1)).default([]),
+  resolutionDisposition: z.string().trim().min(1).default('approved unanimously'),
+  resolutionTerms: z.string().trim().min(1),
+  secretaryName: z.string().trim().min(1),
+});
+
+const templatePayloadSchemas = {
+  board_resolution_secretary_certificate: ZBoardResolutionCertificatePayloadSchema,
+} satisfies Record<AuthorizationTemplateKey, z.ZodTypeAny>;
+
+export const authorizationTemplateTypes = {
+  board_resolution_secretary_certificate: ExecutiveAuthorizationType.BOARD_RESOLUTION,
+} satisfies Record<AuthorizationTemplateKey, ExecutiveAuthorizationType>;
+
+export const parseAuthorizationTemplatePayload = ({
+  payload,
+  templateKey,
+}: {
+  payload: unknown;
+  templateKey: AuthorizationTemplateKey;
+}) => templatePayloadSchemas[templateKey].parse(payload);
+
+export const ZPrepareExecutiveAuthorizationRecordSchema = z.object({
+  notes: z.string().trim().optional(),
+  payload: z.unknown(),
+  templateKey: ZAuthorizationTemplateKeySchema,
+});
+
+export const ZCreateExecutiveAuthorizationSchema =
+  ZPrepareExecutiveAuthorizationRecordSchema.extend({
+    teamId: z.number().int().positive(),
+    userId: z.number().int().positive(),
+  });
+
+export type TCreateExecutiveAuthorization = z.infer<typeof ZCreateExecutiveAuthorizationSchema>;
+export type TPrepareExecutiveAuthorizationRecord = z.infer<
+  typeof ZPrepareExecutiveAuthorizationRecordSchema
+>;

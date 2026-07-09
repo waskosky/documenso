@@ -9,6 +9,7 @@ import LogoImage from '@documenso/assets/logo.png';
 import { authClient } from '@documenso/auth/client';
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { isPersonalLayout } from '@documenso/lib/utils/organisations';
+import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { Sheet, SheetContent } from '@documenso/ui/primitives/sheet';
 import { ThemeSwitcher } from '@documenso/ui/primitives/theme-switcher';
@@ -70,6 +71,10 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
         text: t`Templates`,
       },
       {
+        href: formatAuthorizationsPath(teamUrl),
+        text: t`Authorizations`,
+      },
+      {
         href: '/inbox',
         text: t`Inbox`,
       },
@@ -97,13 +102,13 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
           {menuNavigationLinks.map(({ href, text }) => (
             <Link
               key={href}
-              className="text-foreground hover:text-foreground/80 flex items-center gap-2 text-2xl font-semibold"
+              className="flex items-center gap-2 text-2xl font-semibold text-foreground hover:text-foreground/80"
               to={href}
               onClick={() => handleMenuItemClick()}
             >
               {text}
               {href === '/inbox' && unreadCountData && unreadCountData.count > 0 && (
-                <span className="bg-primary text-primary-foreground flex h-6 min-w-[1.5rem] items-center justify-center rounded-full px-1.5 text-xs font-semibold">
+                <span className="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
                   {unreadCountData.count > 99 ? '99+' : unreadCountData.count}
                 </span>
               )}
@@ -111,7 +116,7 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
           ))}
 
           <button
-            className="text-foreground hover:text-foreground/80 text-2xl font-semibold"
+            className="text-2xl font-semibold text-foreground hover:text-foreground/80"
             onClick={async () => authClient.signOut()}
           >
             <Trans>Sign Out</Trans>
@@ -123,7 +128,7 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
             <ThemeSwitcher />
           </div>
 
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Documenso, Inc. <br /> All rights reserved.
           </p>
         </div>

@@ -39,6 +39,12 @@
 - Use `<Form>` `<FormItem>` elements with fieldset having `:disabled` attribute when loading
 - Use Lucide icons with longhand names (HomeIcon vs Home)
 
+## Executive Assistant Workflows
+
+- For executive-assistant and operations tasks, proactively keep a durable log of decisions, source documents, signers, sent URLs, status, final artifacts, and follow-up context so future agents can immediately pick up significant system or business workflows.
+- Keep authorization, permission, approval, and board-record workflows structured around reusable templates and editable records rather than one-off generated documents.
+- Use Documenso for signing, delivery, and audit mechanics; custom code should focus on intake, record keeping, template rendering, status summaries, and integration boundaries.
+
 ## TRPC Routes
 
 - Each route in own file: `routers/teams/create-team.ts`
