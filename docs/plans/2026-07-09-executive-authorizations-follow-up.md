@@ -8,6 +8,14 @@
 
 **Tech Stack:** Remix routes/actions, Prisma, Documenso document/template/envelope services, Documenso mail transport, webhook handlers, TypeScript tests, production SMTP/SES configuration.
 
+## Current Implementation State From 2026-07-09
+
+- Draft executive authorization records can now generate native Documenso document envelopes from the rendered board certificate.
+- The generated document is a plain PDF with a dedicated director consent signature page and Documenso signature/date fields.
+- The detail page can generate the document, send it through Documenso's normal email/signing flow, refresh signer status manually, and link to the native Documenso document page.
+- Draft records are editable through a dedicated edit route; generated/sent records are locked for material edits.
+- The remaining soon-next work is webhook-driven status sync and final signed artifact/certificate surfacing, not rebuilding email delivery or signature collection.
+
 ---
 
 ## Priority 1: Production Email Delivery
