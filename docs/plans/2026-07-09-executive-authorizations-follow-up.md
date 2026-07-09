@@ -15,6 +15,8 @@
 - The detail page can generate the document, send it through Documenso's normal email/signing flow, refresh signer status manually, and link to the native Documenso document page.
 - Draft records are editable through a dedicated edit route; generated/sent records are locked for material edits.
 - The remaining soon-next work is webhook-driven status sync and final signed artifact/certificate surfacing, not rebuilding email delivery or signature collection.
+- A live smoke test completed all three signer tokens through Documenso's signing UI. Manual refresh correctly moved the authorization log to `COMPLETED` and now derives `completedAt` from the latest signer timestamp when the envelope has not been sealed yet.
+- That same smoke test showed the underlying Documenso envelope can remain `PENDING` after all recipients sign, so Priority 4 should investigate the seal/final-artifact job path and make final signed PDFs/certificates first-class on the authorization detail page.
 
 ---
 
