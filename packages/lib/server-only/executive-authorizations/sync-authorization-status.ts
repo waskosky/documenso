@@ -69,6 +69,30 @@ const mapEnvelopeStatus = ({
   return ExecutiveAuthorizationStatus.READY;
 };
 
+const deriveCompletedAt = ({ completedAt, recipients }: BuildAuthorizationStatusUpdateOptions) => {
+  if (completedAt) {
+    return completedAt;
+  }
+
+  const signerRecipients = recipients.filter(
+    (recipient) => recipient.role === RecipientRole.SIGNER,
+  );
+
+  const signedTimestamps = signerRecipients
+    .map((recipient) => recipient.signedAt)
+    .filter((signedAt): signedAt is Date => signedAt instanceof Date);
+
+  if (
+    signerRecipients.length > 0 &&
+    signedTimestamps.length === signerRecipients.length &&
+    signerRecipients.every((recipient) => recipient.signingStatus === 'SIGNED')
+  ) {
+    return new Date(Math.max(...signedTimestamps.map((signedAt) => signedAt.getTime())));
+  }
+
+  return undefined;
+};
+
 export const buildAuthorizationStatusUpdate = ({
   completedAt,
   envelopeStatus,
@@ -79,8 +103,17 @@ export const buildAuthorizationStatusUpdate = ({
     existingSigners.map((signer) => [signer.email.trim().toLowerCase(), signer] as const),
   );
 
+  const status = mapEnvelopeStatus({
+    completedAt,
+    envelopeStatus,
+    recipients,
+  });
+
   return {
-    completedAt: completedAt ?? undefined,
+    completedAt:
+      status === ExecutiveAuthorizationStatus.COMPLETED
+        ? deriveCompletedAt({ completedAt, envelopeStatus, recipients })
+        : undefined,
     signers: recipients
       .filter((recipient) => recipient.role === RecipientRole.SIGNER)
       .sort((a, b) => {
@@ -108,10 +141,6 @@ export const buildAuthorizationStatusUpdate = ({
           status: recipient.signingStatus,
         };
       }),
-    status: mapEnvelopeStatus({
-      completedAt,
-      envelopeStatus,
-      recipients,
-    }),
+    status,
   };
 };

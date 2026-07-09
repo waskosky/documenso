@@ -34,7 +34,7 @@ import { Card } from '@documenso/ui/primitives/card';
 
 import { appMetaTags } from '~/utils/meta';
 
-import type { Route } from './+types/authorizations.$id';
+import type { Route } from './+types/authorizations.$id._index';
 
 export function meta() {
   return appMetaTags(msg`Authorization`.id as never);
