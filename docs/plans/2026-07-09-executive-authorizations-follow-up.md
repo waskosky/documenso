@@ -18,6 +18,17 @@
 - A live smoke test completed all three signer tokens through Documenso's signing UI. Manual refresh correctly moved the authorization log to `COMPLETED` and now derives `completedAt` from the latest signer timestamp when the envelope has not been sealed yet.
 - That same smoke test showed the underlying Documenso envelope can remain `PENDING` after all recipients sign, so Priority 4 should investigate the seal/final-artifact job path and make final signed PDFs/certificates first-class on the authorization detail page.
 
+**Seal/final-artifact recovery update from 2026-07-10:**
+
+- Root cause 1 was operational background-job delivery. The local job provider created `BackgroundJob` rows, but `NEXT_PRIVATE_INTERNAL_WEBAPP_URL` pointed at `http://127.0.0.1:3000`; no process was listening there under the Passenger deployment, so self-callbacks never reached `/api/jobs/...`.
+- Live was repaired by setting `NEXT_PRIVATE_INTERNAL_WEBAPP_URL=https://sign.disclosurecomics.com` and restarting Passenger. A fresh non-sending smoke `send.recipient.signed.email` job created through `jobs.triggerJob(...)` completed through that HTTPS callback path.
+- Root cause 2 was signing-certificate format. The configured `.p12` file and passphrase were readable by OpenSSL, but Documenso's signer library failed with `Failed to get private key bags` against the modern OpenSSL 3 PBES2/AES-256 PKCS#12 export.
+- Live was repaired by backing up `certs/signing.p12` and re-exporting it with legacy-compatible PKCS#12 encryption using `openssl pkcs12 -export -legacy ...` and the existing configured passphrase. The new file uses a 3DES shrouded keybag and loads successfully in the seal handler.
+- The original smoke authorization `cmre5d6bk0001gpelwlsqwvg1` now has authorization status `COMPLETED`, underlying envelope status `COMPLETED`, `envelope.completedAt=2026-07-10T00:05:49.035Z`, a `DOCUMENT_COMPLETED` audit log, and signed/certified PDF bytes stored in the existing document data row.
+- One failed historical seal job remains for audit trail visibility: `cmre5n1oe0021gpelsi7j7y3r` is `FAILED` after the pre-fix attempts. Do not treat that old failed job as the current envelope state; the envelope itself is completed.
+- Keep a deployment runbook note: under this Passenger deployment, the local job provider must use a reachable HTTPS internal webapp URL unless a real localhost listener is added. For higher volume production, revisit BullMQ or Inngest rather than relying indefinitely on the local provider.
+- Keep a certificate runbook note: when regenerating `certs/signing.p12` with OpenSSL 3, use the legacy-compatible PKCS#12 export path or verify the exact signer library accepts the new format before deploying.
+
 ---
 
 ## Priority 1: Production Email Delivery
@@ -133,6 +144,11 @@
 
 - The authorization detail page reflects signing progress without manual database edits.
 - Completed records expose final signed artifacts and audit evidence.
+
+**Current status from 2026-07-10:**
+
+- Manual refresh and the seal path have both been repaired on the live smoke record.
+- The underlying Documenso completed envelope now holds the signed PDF/certificate output, so the remaining product work is surfacing those final artifacts directly on the authorization detail page and adding webhook-driven sync so manual refresh is not required.
 
 ## Priority 5: Editable Records And Template Expansion
 
