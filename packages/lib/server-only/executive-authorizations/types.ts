@@ -24,9 +24,44 @@ export type AuthorizationRenderResult = {
 export type AuthorizationTemplate<TPayload> = {
   key: AuthorizationTemplateKey;
   label: string;
+  signing: AuthorizationTemplateSigningMetadata;
   type: AuthorizationTemplateType;
   version: number;
   render: (payload: TPayload) => AuthorizationRenderResult;
+};
+
+export type AuthorizationTemplateSignerRole = {
+  key: string;
+  label: string;
+  maxCount?: number;
+  minCount: number;
+  required: boolean;
+};
+
+export type AuthorizationTemplatePlacementValue =
+  | number
+  | {
+      start: number;
+      step: number;
+    };
+
+export type AuthorizationTemplateFieldPlacement = {
+  appliesTo:
+    | 'all_signers'
+    | {
+        signerRole: string;
+      };
+  field: 'DATE' | 'SIGNATURE';
+  height: number;
+  page: 'signature_page';
+  positionX: AuthorizationTemplatePlacementValue;
+  positionY: AuthorizationTemplatePlacementValue;
+  width: number;
+};
+
+export type AuthorizationTemplateSigningMetadata = {
+  fieldPlacements: AuthorizationTemplateFieldPlacement[];
+  signerRoles: AuthorizationTemplateSignerRole[];
 };
 
 export type BoardDirectorVote = {

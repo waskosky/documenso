@@ -1,6 +1,12 @@
 import { FieldType, RecipientRole } from '@prisma/client';
 
-import type { AuthorizationSigner, AuthorizationTemplateKey } from './types';
+import { getAuthorizationTemplate } from './templates';
+import type {
+  AuthorizationSigner,
+  AuthorizationTemplateFieldPlacement,
+  AuthorizationTemplateKey,
+  AuthorizationTemplatePlacementValue,
+} from './types';
 
 type BuildAuthorizationEnvelopePlanOptions = {
   authorizationId: string;
@@ -59,43 +65,62 @@ const slugifyFileName = (title: string) => {
   return `${slug || 'authorization'}.pdf`;
 };
 
-const signerFieldPlacement = (
-  signerIndex: number,
-  page: number,
-): AuthorizationEnvelopeFieldPlan[] => {
-  const rowTop = 28 + signerIndex * 18;
+const resolvePlacementValue = (value: AuthorizationTemplatePlacementValue, signerIndex: number) => {
+  if (typeof value === 'number') {
+    return value;
+  }
 
-  return [
-    {
+  return value.start + signerIndex * value.step;
+};
+
+const placementAppliesToSigner = (
+  placement: AuthorizationTemplateFieldPlacement,
+  signer: AuthorizationSigner,
+) => {
+  if (placement.appliesTo === 'all_signers') {
+    return true;
+  }
+
+  return placement.appliesTo.signerRole.toLowerCase() === signer.role.toLowerCase();
+};
+
+const buildFieldFromPlacement = ({
+  placement,
+  signaturePageNumber,
+  signerIndex,
+}: {
+  placement: AuthorizationTemplateFieldPlacement;
+  signaturePageNumber: number;
+  signerIndex: number;
+}): AuthorizationEnvelopeFieldPlan => {
+  const baseField = {
+    height: placement.height,
+    page: signaturePageNumber,
+    positionX: resolvePlacementValue(placement.positionX, signerIndex),
+    positionY: resolvePlacementValue(placement.positionY, signerIndex),
+    width: placement.width,
+  };
+
+  if (placement.field === 'SIGNATURE') {
+    return {
+      ...baseField,
       fieldMeta: {
         overflow: 'auto',
         type: 'signature',
       },
-      height: 5.5,
-      page,
-      positionX: 30,
-      positionY: rowTop,
       type: FieldType.SIGNATURE,
-      width: 38,
-    },
-    {
-      fieldMeta: {
-        overflow: 'auto',
-        type: 'date',
-      },
-      height: 4.5,
-      page,
-      positionX: 75,
-      positionY: rowTop + 0.5,
-      type: FieldType.DATE,
-      width: 14,
-    },
-  ];
-};
+    };
+  }
 
-const AUTHORIZATION_FIELD_PLACEMENTS = {
-  board_resolution_secretary_certificate: signerFieldPlacement,
-} satisfies Record<AuthorizationTemplateKey, typeof signerFieldPlacement>;
+  return {
+    ...baseField,
+    fieldMeta: {
+      overflow: 'auto',
+      type: 'date',
+    },
+    type: FieldType.DATE,
+  };
+};
 
 export const buildAuthorizationEnvelopePlan = ({
   authorizationId,
@@ -105,7 +130,7 @@ export const buildAuthorizationEnvelopePlan = ({
   templateKey,
   title,
 }: BuildAuthorizationEnvelopePlanOptions): AuthorizationEnvelopePlan => {
-  const fieldPlacement = AUTHORIZATION_FIELD_PLACEMENTS[templateKey];
+  const template = getAuthorizationTemplate(templateKey);
   const recipients = signers
     .map((signer, index) => ({
       ...signer,
@@ -131,7 +156,15 @@ export const buildAuthorizationEnvelopePlan = ({
     fileName: slugifyFileName(title),
     recipients: recipients.map((signer, index) => ({
       email: signer.email,
-      fields: fieldPlacement(index, signaturePageNumber),
+      fields: template.signing.fieldPlacements
+        .filter((placement) => placementAppliesToSigner(placement, signer))
+        .map((placement) =>
+          buildFieldFromPlacement({
+            placement,
+            signaturePageNumber,
+            signerIndex: index,
+          }),
+        ),
       name: signer.name,
       role: RecipientRole.SIGNER,
       signingOrder: signer.signingOrder,
