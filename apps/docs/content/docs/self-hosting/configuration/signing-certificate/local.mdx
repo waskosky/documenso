@@ -54,12 +54,13 @@ When prompted, enter your organisation details:
 Combine the private key and certificate into a PKCS#12 (.p12) file:
 
 ```bash
-openssl pkcs12 -export -out certificate.p12 -inkey private.key -in certificate.crt
+openssl pkcs12 -export -legacy -out certificate.p12 -inkey private.key -in certificate.crt
 ```
 
 <Callout type="warn">
-  You must set a password when prompted. Certificates without passwords cause signing failures with
-  the error "Failed to get private key bags".
+  You must set a password when prompted. Certificates without passwords, or modern OpenSSL 3
+  PKCS#12 exports that the signer library cannot parse, cause signing failures with the error
+  "Failed to get private key bags".
 </Callout>
 
 To set the password non-interactively:
@@ -70,6 +71,7 @@ read -s -p "Enter certificate password: " CERT_PASS
 echo
 
 openssl pkcs12 -export -out certificate.p12 -inkey private.key -in certificate.crt \
+    -legacy \
     -password env:CERT_PASS
 ```
 
@@ -99,7 +101,7 @@ If you have an existing certificate from a CA, convert it to PKCS#12 format.
 If you have separate certificate and key files:
 
 ```bash
-openssl pkcs12 -export -out certificate.p12 \
+openssl pkcs12 -export -legacy -out certificate.p12 \
     -inkey private.key \
     -in certificate.crt \
     -certfile chain.crt
