@@ -10,6 +10,7 @@ import { Trans } from '@lingui/react/macro';
 import { PlusIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
+import { formatAuthorizationDate } from '~/utils/authorization-date-format';
 import { appMetaTags } from '~/utils/meta';
 
 import type { Route } from './+types/authorizations._index';
@@ -31,6 +32,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return {
     authorizations: authorizations.map((authorization) => ({
       actionDate: authorization.actionDate?.toISOString() ?? null,
+      actionDateDisplay: formatAuthorizationDate(authorization.actionDate?.toISOString()),
       companyLegalName: authorization.companyLegalName,
       createdAt: authorization.createdAt.toISOString(),
       envelopeId: authorization.envelopeId,
@@ -117,9 +119,7 @@ export default function AuthorizationsPage({ loaderData }: Route.ComponentProps)
                     <td className="px-4 py-3">
                       <Badge variant="secondary">{authorization.status}</Badge>
                     </td>
-                    <td className="px-4 py-3">
-                      {authorization.actionDate ? new Date(authorization.actionDate).toLocaleDateString() : 'Not set'}
-                    </td>
+                    <td className="px-4 py-3">{authorization.actionDateDisplay ?? 'Not set'}</td>
                   </tr>
                 ))}
               </tbody>
