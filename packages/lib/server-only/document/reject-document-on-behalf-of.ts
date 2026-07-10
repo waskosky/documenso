@@ -18,6 +18,7 @@ import { mapSecondaryIdToDocumentId } from '../../utils/envelope';
 import { assertRecipientNotExpired } from '../../utils/recipients';
 import { buildTeamWhereQuery } from '../../utils/teams';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { syncExecutiveAuthorizationForEnvelope } from '../executive-authorizations/sync-authorization-for-envelope';
 
 export type RejectDocumentOnBehalfOfOptions = {
   /**
@@ -147,6 +148,10 @@ export async function rejectDocumentOnBehalfOf({
   ]);
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
+
+  await syncExecutiveAuthorizationForEnvelope({
+    envelopeId: envelope.id,
+  });
 
   // Trigger the seal document job to process the document asynchronously.
   await jobs.triggerJob({

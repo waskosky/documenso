@@ -15,6 +15,7 @@ import { groupBy } from 'remeda';
 
 import { NEXT_PRIVATE_USE_PLAYWRIGHT_PDF } from '../../../constants/app';
 import { AppError, AppErrorCode } from '../../../errors/app-error';
+import { syncExecutiveAuthorizationForEnvelope } from '../../../server-only/executive-authorizations/sync-authorization-for-envelope';
 import { getAuditLogsPdf } from '../../../server-only/htmltopdf/get-audit-logs-pdf';
 import { getCertificatePdf } from '../../../server-only/htmltopdf/get-certificate-pdf';
 import { insertFieldInPDFV1 } from '../../../server-only/pdf/insert-field-in-pdf-v1';
@@ -331,6 +332,10 @@ export const run = async ({ payload, io }: { payload: TSealDocumentJobDefinition
       documentMeta: true,
       recipients: true,
     },
+  });
+
+  await syncExecutiveAuthorizationForEnvelope({
+    envelopeId: updatedEnvelope.id,
   });
 
   await triggerWebhook({

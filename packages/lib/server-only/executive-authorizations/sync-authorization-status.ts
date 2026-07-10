@@ -21,7 +21,7 @@ export type AuthorizationStatusRecipient = {
   token: string;
 };
 
-type BuildAuthorizationStatusUpdateOptions = {
+export type BuildAuthorizationStatusUpdateOptions = {
   completedAt: Date | null;
   envelopeStatus: DocumentStatus;
   existingSigners?: AuthorizationSigner[];

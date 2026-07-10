@@ -11,6 +11,7 @@ import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToDocumentId } from '../../utils/envelope';
 import { isMemberManagerOrAbove } from '../../utils/teams';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { syncExecutiveAuthorizationForEnvelope } from '../executive-authorizations/sync-authorization-for-envelope';
 import { getMemberRoles } from '../team/get-member-roles';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 
@@ -100,6 +101,10 @@ export const cancelDocument = async ({ id, userId, teamId, reason, requestMetada
   });
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
+
+  await syncExecutiveAuthorizationForEnvelope({
+    envelopeId: updatedEnvelope.id,
+  });
 
   // Send cancellation emails to recipients via the resilient background job.
   await jobs.triggerJob({

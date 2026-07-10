@@ -1,16 +1,22 @@
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
 import { APP_DOCUMENT_UPLOAD_SIZE_LIMIT } from '@documenso/lib/constants/app';
+import { PDF_SIZE_A4_72PPI } from '@documenso/lib/constants/pdf';
 import { AppError } from '@documenso/lib/errors/app-error';
 import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embedding-presign/verify-embedding-presign-token';
+import { generateAuditLogPdf } from '@documenso/lib/server-only/pdf/generate-audit-log-pdf';
+import { generateCertificatePdf } from '@documenso/lib/server-only/pdf/generate-certificate-pdf';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
+import { isDocumentCompleted } from '@documenso/lib/utils/document';
 import { prisma } from '@documenso/prisma';
 import { sValidator } from '@hono/standard-validator';
-import type { Prisma } from '@prisma/client';
+import { DocumentStatus, EnvelopeType, type Prisma } from '@prisma/client';
+import contentDisposition from 'content-disposition';
 import { Hono } from 'hono';
 
 import type { HonoEnv } from '../../router';
 import { checkEnvelopeFileAccess, handleEnvelopeItemFileRequest, resolveFileUploadUserId } from './files.helpers';
 import {
+  ZGetEnvelopeArtifactPdfDownloadRequestParamsSchema,
   ZGetEnvelopeItemFileDownloadRequestParamsSchema,
   ZGetEnvelopeItemFileRequestParamsSchema,
   ZGetEnvelopeItemFileRequestQuerySchema,
@@ -57,6 +63,201 @@ export const filesRoute = new Hono<HonoEnv>()
       return c.json({ error: 'Upload failed' }, 500);
     }
   })
+  .get(
+    '/envelope/:envelopeId/audit-log/download',
+    sValidator('param', ZGetEnvelopeArtifactPdfDownloadRequestParamsSchema),
+    async (c) => {
+      const logger = c.get('logger');
+
+      try {
+        const { envelopeId } = c.req.valid('param');
+        const session = await getOptionalSession(c);
+
+        if (!session.user) {
+          return c.json({ error: 'Unauthorized' }, 401);
+        }
+
+        const envelope = await prisma.envelope.findFirst({
+          where: {
+            id: envelopeId,
+            type: EnvelopeType.DOCUMENT,
+          },
+          include: {
+            recipients: true,
+            fields: {
+              include: {
+                signature: true,
+              },
+            },
+            documentMeta: true,
+            user: {
+              select: {
+                email: true,
+                name: true,
+              },
+            },
+            envelopeItems: {
+              orderBy: {
+                order: 'asc',
+              },
+              select: {
+                title: true,
+              },
+            },
+          },
+        });
+
+        if (!envelope || !envelope.documentMeta) {
+          return c.json({ error: 'Envelope not found' }, 404);
+        }
+
+        const hasAccess = await checkEnvelopeFileAccess({
+          userId: session.user.id,
+          teamId: envelope.teamId,
+          envelopeType: envelope.type,
+          templateType: envelope.templateType,
+        });
+
+        if (!hasAccess) {
+          return c.json(
+            {
+              error: 'User does not have access to the team that this envelope is associated with',
+            },
+            403,
+          );
+        }
+
+        const auditLogPdf = await generateAuditLogPdf({
+          envelope,
+          recipients: envelope.recipients,
+          fields: envelope.fields,
+          language: envelope.documentMeta.language,
+          envelopeOwner: {
+            email: envelope.user.email,
+            name: envelope.user.name || '',
+          },
+          envelopeItems: envelope.envelopeItems.map((item) => item.title),
+          pageWidth: PDF_SIZE_A4_72PPI.width,
+          pageHeight: PDF_SIZE_A4_72PPI.height,
+        });
+
+        const result = await auditLogPdf.save();
+        const baseTitle = envelope.title.replace(/\.pdf$/i, '');
+
+        c.header('Content-Type', 'application/pdf');
+        c.header('Content-Disposition', contentDisposition(`${baseTitle}_audit-log.pdf`));
+        c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+        return c.body(result);
+      } catch (error) {
+        logger.error(error);
+
+        if (error instanceof AppError) {
+          const { status, body } = AppError.toRestAPIError(error);
+
+          return c.json({ error: body.message, code: error.code }, status);
+        }
+
+        return c.json({ error: 'Internal server error' }, 500);
+      }
+    },
+  )
+  .get(
+    '/envelope/:envelopeId/certificate/download',
+    sValidator('param', ZGetEnvelopeArtifactPdfDownloadRequestParamsSchema),
+    async (c) => {
+      const logger = c.get('logger');
+
+      try {
+        const { envelopeId } = c.req.valid('param');
+        const session = await getOptionalSession(c);
+
+        if (!session.user) {
+          return c.json({ error: 'Unauthorized' }, 401);
+        }
+
+        const envelope = await prisma.envelope.findFirst({
+          where: {
+            id: envelopeId,
+            type: EnvelopeType.DOCUMENT,
+          },
+          include: {
+            recipients: true,
+            fields: {
+              include: {
+                signature: true,
+              },
+            },
+            documentMeta: true,
+            user: {
+              select: {
+                email: true,
+                name: true,
+              },
+            },
+          },
+        });
+
+        if (!envelope || !envelope.documentMeta) {
+          return c.json({ error: 'Envelope not found' }, 404);
+        }
+
+        const hasAccess = await checkEnvelopeFileAccess({
+          userId: session.user.id,
+          teamId: envelope.teamId,
+          envelopeType: envelope.type,
+          templateType: envelope.templateType,
+        });
+
+        if (!hasAccess) {
+          return c.json(
+            {
+              error: 'User does not have access to the team that this envelope is associated with',
+            },
+            403,
+          );
+        }
+
+        if (!isDocumentCompleted(envelope.status) || envelope.status === DocumentStatus.CANCELLED) {
+          throw new AppError('DOCUMENT_NOT_COMPLETE', {
+            message: 'Document is not complete',
+          });
+        }
+
+        const certificatePdf = await generateCertificatePdf({
+          envelope,
+          recipients: envelope.recipients,
+          fields: envelope.fields,
+          language: envelope.documentMeta.language,
+          envelopeOwner: {
+            email: envelope.user.email,
+            name: envelope.user.name || '',
+          },
+          pageWidth: PDF_SIZE_A4_72PPI.width,
+          pageHeight: PDF_SIZE_A4_72PPI.height,
+        });
+
+        const result = await certificatePdf.save();
+        const baseTitle = envelope.title.replace(/\.pdf$/i, '');
+
+        c.header('Content-Type', 'application/pdf');
+        c.header('Content-Disposition', contentDisposition(`${baseTitle}_certificate.pdf`));
+        c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+        return c.body(result);
+      } catch (error) {
+        logger.error(error);
+
+        if (error instanceof AppError) {
+          const { status, body } = AppError.toRestAPIError(error);
+
+          return c.json({ error: body.message, code: error.code }, status);
+        }
+
+        return c.json({ error: 'Internal server error' }, 500);
+      }
+    },
+  )
   .get(
     '/envelope/:envelopeId/envelopeItem/:envelopeItemId',
     sValidator('param', ZGetEnvelopeItemFileRequestParamsSchema),
