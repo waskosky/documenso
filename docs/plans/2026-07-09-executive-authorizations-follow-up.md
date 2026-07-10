@@ -178,3 +178,11 @@
 - Draft authorizations are editable from the UI.
 - Sent/completed authorizations remain auditable and immutable except for notes/status sync fields.
 - New templates can be added without changing route-level business logic.
+
+**Product update from 2026-07-10:**
+
+- Draft authorization edit support exists, and generated/sent records are locked from material edits.
+- The template registry now includes signing metadata through `template.signing.signerRoles` and `template.signing.fieldPlacements`.
+- The envelope builder now reads signature/date field placement from the selected template through `getAuthorizationTemplate(...)` instead of keeping a separate board-specific placement map in builder code.
+- A focused `templates-metadata.test.ts` regression check locks the board template's required director role and signature/date placements.
+- Remaining soon-next work for template expansion is to make create/edit route validation and signer form sections derive from the template signing metadata, then add any new authorization templates only by extending the registry.
