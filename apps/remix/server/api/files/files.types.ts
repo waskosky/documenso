@@ -63,6 +63,14 @@ export type TGetEnvelopeItemFileDownloadRequestParams = z.infer<
   typeof ZGetEnvelopeItemFileDownloadRequestParamsSchema
 >;
 
+export const ZGetEnvelopeArtifactPdfDownloadRequestParamsSchema = z.object({
+  envelopeId: z.string().min(1),
+});
+
+export type TGetEnvelopeArtifactPdfDownloadRequestParams = z.infer<
+  typeof ZGetEnvelopeArtifactPdfDownloadRequestParamsSchema
+>;
+
 export const ZGetEnvelopeItemFileTokenDownloadRequestParamsSchema = z.object({
   token: z.string().min(1),
   envelopeItemId: z.string().min(1),

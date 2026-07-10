@@ -29,6 +29,7 @@ import { NEXT_PRIVATE_USE_PLAYWRIGHT_PDF } from '../../../constants/app';
 import { PDF_SIZE_A4_72PPI } from '../../../constants/pdf';
 import { AppError, AppErrorCode } from '../../../errors/app-error';
 import { sendCompletedEmail } from '../../../server-only/document/send-completed-email';
+import { syncExecutiveAuthorizationForEnvelope } from '../../../server-only/executive-authorizations/sync-authorization-for-envelope';
 import { getAuditLogsPdf } from '../../../server-only/htmltopdf/get-audit-logs-pdf';
 import { getCertificatePdf } from '../../../server-only/htmltopdf/get-certificate-pdf';
 import { addRejectionStampToPdf } from '../../../server-only/pdf/add-rejection-stamp-to-pdf';
@@ -324,6 +325,10 @@ export const run = async ({
       documentMeta: true,
       recipients: true,
     },
+  });
+
+  await syncExecutiveAuthorizationForEnvelope({
+    envelopeId: updatedEnvelope.id,
   });
 
   await triggerWebhook({

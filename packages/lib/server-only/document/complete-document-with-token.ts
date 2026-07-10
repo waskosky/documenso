@@ -29,6 +29,7 @@ import {
 import { extractDocumentAuthMethods } from '../../utils/document-auth';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToDocumentId, unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
+import { syncExecutiveAuthorizationForEnvelope } from '../executive-authorizations/sync-authorization-for-envelope';
 import { getIsRecipientsTurnToSign } from '../recipient/get-is-recipient-turn';
 import { triggerWebhook } from '../webhooks/trigger/trigger-webhook';
 import { isRecipientAuthorized } from './is-recipient-authorized';
@@ -408,6 +409,10 @@ export const completeDocumentWithToken = async ({
       documentMeta: true,
       recipients: true,
     },
+  });
+
+  await syncExecutiveAuthorizationForEnvelope({
+    envelopeId: updatedDocument.id,
   });
 
   await triggerWebhook({

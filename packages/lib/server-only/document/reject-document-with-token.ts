@@ -9,6 +9,7 @@ import type { RequestMetadata } from '../../universal/extract-request-metadata';
 import { createDocumentAuditLogData } from '../../utils/document-audit-logs';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapSecondaryIdToDocumentId, unsafeBuildEnvelopeIdQuery } from '../../utils/envelope';
+import { syncExecutiveAuthorizationForEnvelope } from '../executive-authorizations/sync-authorization-for-envelope';
 
 export type RejectDocumentWithTokenOptions = {
   token: string;
@@ -75,6 +76,10 @@ export async function rejectDocumentWithToken({
   ]);
 
   const legacyDocumentId = mapSecondaryIdToDocumentId(envelope.secondaryId);
+
+  await syncExecutiveAuthorizationForEnvelope({
+    envelopeId: envelope.id,
+  });
 
   // Trigger the seal document job to process the document asynchronously
   await jobs.triggerJob({

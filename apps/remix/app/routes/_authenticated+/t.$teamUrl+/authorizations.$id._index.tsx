@@ -3,15 +3,19 @@ import { Trans } from '@lingui/react/macro';
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
 import {
   ArrowLeftIcon,
+  DownloadIcon,
   ExternalLinkIcon,
+  FileCheck2Icon,
   FilePlus2Icon,
   PencilIcon,
   RefreshCwIcon,
+  ScrollTextIcon,
   SendIcon,
 } from 'lucide-react';
 import { Form, Link, redirect, useActionData } from 'react-router';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
+import { buildAuthorizationArtifactLinks } from '@documenso/lib/server-only/executive-authorizations/authorization-artifacts';
 import { createAuthorizationSigningEnvelope } from '@documenso/lib/server-only/executive-authorizations/create-authorization-signing-envelope';
 import { getExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization';
 import { refreshExecutiveAuthorizationStatus } from '@documenso/lib/server-only/executive-authorizations/refresh-executive-authorization-status';
@@ -75,6 +79,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return {
     authorization: {
       actionDate: authorization.actionDate?.toISOString() ?? null,
+      artifactLinks: buildAuthorizationArtifactLinks({
+        envelope: authorization.envelope,
+      }),
       companyLegalName: authorization.companyLegalName,
       completedAt: authorization.completedAt?.toISOString() ?? null,
       createdAt: authorization.createdAt.toISOString(),
@@ -319,6 +326,29 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
             </div>
           </Card>
 
+          {authorization.artifactLinks.length > 0 && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold">
+                <Trans>Final artifacts</Trans>
+              </h2>
+              <div className="mt-4 space-y-2">
+                {authorization.artifactLinks.map((artifact) => (
+                  <Button
+                    key={artifact.key}
+                    asChild
+                    variant="outline"
+                    className="w-full justify-start"
+                  >
+                    <a href={artifact.href}>
+                      <ArtifactIcon type={artifact.type} />
+                      {artifact.label}
+                    </a>
+                  </Button>
+                ))}
+              </div>
+            </Card>
+          )}
+
           {authorization.notes && (
             <Card className="p-6">
               <h2 className="text-lg font-semibold">
@@ -341,3 +371,15 @@ const Detail = ({ label, value }: { label: string; value: string }) => (
     <dd className="mt-1 break-words font-medium">{value}</dd>
   </div>
 );
+
+const ArtifactIcon = ({ type }: { type: 'audit_log_pdf' | 'certificate_pdf' | 'signed_pdf' }) => {
+  if (type === 'audit_log_pdf') {
+    return <ScrollTextIcon className="mr-2 h-4 w-4" />;
+  }
+
+  if (type === 'certificate_pdf') {
+    return <FileCheck2Icon className="mr-2 h-4 w-4" />;
+  }
+
+  return <DownloadIcon className="mr-2 h-4 w-4" />;
+};

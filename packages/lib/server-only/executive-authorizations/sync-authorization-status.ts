@@ -22,7 +22,7 @@ export type AuthorizationStatusRecipient = {
   token: string;
 };
 
-type BuildAuthorizationStatusUpdateOptions = {
+export type BuildAuthorizationStatusUpdateOptions = {
   completedAt: Date | null;
   envelopeStatus: DocumentStatus;
   existingSigners?: AuthorizationSigner[];
@@ -38,7 +38,7 @@ const mapEnvelopeStatus = ({
     (recipient) => recipient.role === RecipientRole.SIGNER,
   );
 
-  if ((envelopeStatus as string) === 'CANCELLED') {
+  if (String(envelopeStatus) === 'CANCELLED') {
     return ExecutiveAuthorizationStatus.CANCELLED;
   }
 

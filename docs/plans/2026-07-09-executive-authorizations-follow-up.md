@@ -150,6 +150,14 @@
 - Manual refresh and the seal path have both been repaired on the live smoke record.
 - The underlying Documenso completed envelope now holds the signed PDF/certificate output, so the remaining product work is surfacing those final artifacts directly on the authorization detail page and adding webhook-driven sync so manual refresh is not required.
 
+**Product update from 2026-07-10:**
+
+- The authorization detail page now builds final artifact links from the linked Documenso envelope once the envelope status is `COMPLETED`.
+- Completed authorizations expose direct same-site downloads for each signed envelope PDF, the signing certificate PDF, and the audit log PDF.
+- Session-authenticated `/api/files/envelope/:envelopeId/certificate/download` and `/api/files/envelope/:envelopeId/audit-log/download` routes were added so artifact links do not require API tokens.
+- `syncExecutiveAuthorizationForEnvelope(...)` now updates the authorization record from the envelope recipient/status state.
+- The sync service is called after recipient signing, seal completion/rejection, recipient rejection, external/API rejection, and cancellation, so manual refresh remains a fallback rather than the normal path.
+
 ## Priority 5: Editable Records And Template Expansion
 
 **Files to inspect first:**
