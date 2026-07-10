@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
@@ -36,6 +38,11 @@ import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
 import { Card } from '@documenso/ui/primitives/card';
 
+import { EmailAddressText } from '~/components/executive-authorizations/email-address-text';
+import {
+  formatAuthorizationDate,
+  formatAuthorizationDateTime,
+} from '~/utils/authorization-date-format';
 import { appMetaTags } from '~/utils/meta';
 
 import type { Route } from './+types/authorizations.$id._index';
@@ -79,18 +86,22 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   return {
     authorization: {
       actionDate: authorization.actionDate?.toISOString() ?? null,
+      actionDateDisplay: formatAuthorizationDate(authorization.actionDate?.toISOString()),
       artifactLinks: buildAuthorizationArtifactLinks({
         envelope: authorization.envelope,
       }),
       companyLegalName: authorization.companyLegalName,
       completedAt: authorization.completedAt?.toISOString() ?? null,
+      completedAtDisplay: formatAuthorizationDateTime(authorization.completedAt?.toISOString()),
       createdAt: authorization.createdAt.toISOString(),
+      createdAtDisplay: formatAuthorizationDateTime(authorization.createdAt.toISOString()),
       createdByUser: authorization.createdByUser,
       envelope: authorization.envelope,
       id: authorization.id,
       notes: authorization.notes,
       renderedMarkdown: authorization.renderedMarkdown,
       sentAt: authorization.sentAt?.toISOString() ?? null,
+      sentAtDisplay: formatAuthorizationDateTime(authorization.sentAt?.toISOString()),
       signers: normalizeAuthorizationSigners(authorization.signers),
       status: authorization.status,
       templateKey: authorization.templateKey,
@@ -98,6 +109,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       title: authorization.title,
       type: authorization.type,
       updatedAt: authorization.updatedAt.toISOString(),
+      updatedAtDisplay: formatAuthorizationDateTime(authorization.updatedAt.toISOString()),
     },
     authorizationsPath: formatAuthorizationsPath(team.url),
     canManage: canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole),
@@ -191,9 +203,7 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
           <h1 className="max-w-3xl text-3xl font-semibold">{authorization.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {authorization.companyLegalName}
-            {authorization.actionDate
-              ? ` - ${new Date(authorization.actionDate).toLocaleDateString()}`
-              : ''}
+            {authorization.actionDateDisplay ? ` - ${authorization.actionDateDisplay}` : ''}
           </p>
         </div>
 
@@ -275,23 +285,25 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
             <dl className="mt-4 space-y-3 text-sm">
               <Detail label="Template" value={authorization.templateKey} />
               <Detail label="Template version" value={String(authorization.templateVersion)} />
-              <Detail label="Created" value={new Date(authorization.createdAt).toLocaleString()} />
-              <Detail label="Updated" value={new Date(authorization.updatedAt).toLocaleString()} />
-              {authorization.sentAt && (
-                <Detail label="Sent" value={new Date(authorization.sentAt).toLocaleString()} />
+              <Detail label="Created" value={authorization.createdAtDisplay ?? 'Not set'} />
+              <Detail label="Updated" value={authorization.updatedAtDisplay ?? 'Not set'} />
+              {authorization.sentAtDisplay && (
+                <Detail label="Sent" value={authorization.sentAtDisplay} />
               )}
-              {authorization.completedAt && (
-                <Detail
-                  label="Completed"
-                  value={new Date(authorization.completedAt).toLocaleString()}
-                />
+              {authorization.completedAtDisplay && (
+                <Detail label="Completed" value={authorization.completedAtDisplay} />
               )}
               <Detail
                 label="Created by"
                 value={
-                  authorization.createdByUser.name
-                    ? `${authorization.createdByUser.name} (${authorization.createdByUser.email})`
-                    : authorization.createdByUser.email
+                  authorization.createdByUser.name ? (
+                    <>
+                      {authorization.createdByUser.name} (
+                      <EmailAddressText email={authorization.createdByUser.email} />)
+                    </>
+                  ) : (
+                    <EmailAddressText email={authorization.createdByUser.email} />
+                  )
                 }
               />
             </dl>
@@ -310,7 +322,12 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
                   </div>
                   <div className="mt-1 text-muted-foreground">
                     {String(signer.role ?? 'Signer')}
-                    {signer.email ? ` - ${String(signer.email)}` : ''}
+                    {signer.email && (
+                      <>
+                        {' - '}
+                        <EmailAddressText email={String(signer.email)} />
+                      </>
+                    )}
                   </div>
                   {signer.signingUrl && (
                     <a
@@ -365,7 +382,7 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
   );
 }
 
-const Detail = ({ label, value }: { label: string; value: string }) => (
+const Detail = ({ label, value }: { label: string; value: ReactNode }) => (
   <div>
     <dt className="text-muted-foreground">{label}</dt>
     <dd className="mt-1 break-words font-medium">{value}</dd>
