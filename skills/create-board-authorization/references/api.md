@@ -2,8 +2,9 @@
 
 ## Authentication
 
-Set `DISCLOSURE_SIGN_API_TOKEN` to a team API token with team-management permission. The client sends it as a bearer token and never prints it. Optional settings:
+Use a team API token with team-management permission. The client reads `DISCLOSURE_SIGN_API_TOKEN` first, then `DISCLOSURE_SIGN_API_TOKEN_FILE`, and finally `~/.config/disclosure-sign/api-token`. Token files must use mode `0600`. The client sends the token as a bearer token and never prints it. Optional settings:
 
+- `DISCLOSURE_SIGN_API_TOKEN_FILE` selects a private token file instead of the default path.
 - `DISCLOSURE_SIGN_BASE_URL` defaults to `https://sign.disclosurecomics.com`.
 - `DISCLOSURE_SIGN_TIMEOUT_SECONDS` defaults to `30`.
 

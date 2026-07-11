@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import stat
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -12,6 +13,8 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 DEFAULT_BASE_URL = "https://sign.disclosurecomics.com"
 DEFAULT_TEMPLATE_KEY = "board_resolution_secretary_certificate"
+DEFAULT_TOKEN_FILE = Path("~/.config/disclosure-sign/api-token")
+DEFAULT_USER_AGENT = "DisclosureComics-BoardAuthorization-Agent/1.0 (+https://sign.disclosurecomics.com)"
 
 
 class _RejectRedirectHandler(HTTPRedirectHandler):
@@ -20,6 +23,29 @@ class _RejectRedirectHandler(HTTPRedirectHandler):
 
 
 _URL_OPENER = build_opener(_RejectRedirectHandler())
+
+
+def _load_api_token():
+    environment_token = os.environ.get("DISCLOSURE_SIGN_API_TOKEN", "").strip()
+
+    if environment_token:
+        return environment_token
+
+    token_path = Path(
+        os.environ.get("DISCLOSURE_SIGN_API_TOKEN_FILE", str(DEFAULT_TOKEN_FILE))
+    ).expanduser()
+
+    try:
+        mode = stat.S_IMODE(token_path.stat().st_mode)
+
+        if mode & 0o077:
+            raise ValueError(f"API token file must use private permissions (0600): {token_path}")
+
+        return token_path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
+    except OSError as error:
+        raise ValueError(f"Unable to read API token file {token_path}: {error}") from error
 
 
 def _load_json(path):
@@ -52,6 +78,7 @@ def _request(*, base_url, body, method, path, timeout, token):
             "Accept": "application/json",
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
+            "User-Agent": DEFAULT_USER_AGENT,
         },
     )
 
@@ -95,10 +122,16 @@ def _build_parser():
 def main():
     parser = _build_parser()
     arguments = parser.parse_args()
-    token = os.environ.get("DISCLOSURE_SIGN_API_TOKEN", "").strip()
+
+    try:
+        token = _load_api_token()
+    except ValueError as error:
+        parser.error(str(error))
 
     if not token:
-        parser.error("DISCLOSURE_SIGN_API_TOKEN is required.")
+        parser.error(
+            "DISCLOSURE_SIGN_API_TOKEN or a private DISCLOSURE_SIGN_API_TOKEN_FILE is required."
+        )
 
     base_url = os.environ.get("DISCLOSURE_SIGN_BASE_URL", DEFAULT_BASE_URL).strip() or DEFAULT_BASE_URL
 
