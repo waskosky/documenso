@@ -38,6 +38,16 @@ const ZBoardResolutionCertificateProfilePayloadSchema = ZBoardResolutionCertific
 })
   .strict()
   .superRefine((payload, context) => {
+    payload.directors.forEach((director, index) => {
+      if (!director.email?.trim()) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Director ${index + 1} requires a valid email address.`,
+          path: ['directors', index, 'email'],
+        });
+      }
+    });
+
     const template = getAuthorizationTemplate('board_resolution_secretary_certificate');
     const directorRole = template.signing.signerRoles.find((role) => role.key === 'director');
 

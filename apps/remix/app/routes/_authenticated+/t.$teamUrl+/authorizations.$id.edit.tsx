@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/al
 import { Button } from '@documenso/ui/primitives/button';
 
 import { BoardAuthorizationForm } from '~/components/executive-authorizations/board-authorization-form';
+import { requireAuthorizationManager } from '~/utils/authorization-permissions';
 import { buildBoardAuthorizationInputFromFormData } from '~/utils/executive-authorizations';
 import { appMetaTags } from '~/utils/meta';
 
@@ -30,6 +31,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     teamUrl: params.teamUrl,
     userId: user.id,
   });
+  requireAuthorizationManager(team.currentTeamRole);
   const authorization = await getExecutiveAuthorization({
     id: params.id,
     teamId: team.id,
@@ -62,6 +64,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     teamUrl: params.teamUrl,
     userId: user.id,
   });
+  requireAuthorizationManager(team.currentTeamRole);
   const formData = await request.formData();
   const signerRoles = getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles;
 

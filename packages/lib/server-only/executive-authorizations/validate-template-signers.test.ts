@@ -60,4 +60,15 @@ assert.throws(
   /unexpected signer role.*Secretary/i,
 );
 
+for (const duplicateEmail of ['one@example.test', 'ONE@EXAMPLE.TEST', ' one@example.test ']) {
+  assert.throws(
+    () =>
+      validateAuthorizationTemplateSigners({
+        signers: [signers[0], { ...signers[1], email: duplicateEmail }, signers[2]],
+        templateKey,
+      }),
+    /unique email address/i,
+  );
+}
+
 console.log('authorization template signer validation tests passed');

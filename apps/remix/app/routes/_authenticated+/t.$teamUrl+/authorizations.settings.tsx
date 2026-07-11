@@ -4,7 +4,7 @@ import { parseAuthorizationTemplateProfilePayload } from '@documenso/lib/server-
 import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import { upsertExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/upsert-executive-authorization-profile';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
-import { canExecuteTeamAction, formatAuthorizationsPath } from '@documenso/lib/utils/teams';
+import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
 import { msg } from '@lingui/core/macro';
@@ -12,6 +12,7 @@ import { ArrowLeftIcon, SaveIcon } from 'lucide-react';
 import { Form, Link, redirect, useActionData } from 'react-router';
 
 import { AuthorizationProfileForm } from '~/components/executive-authorizations/authorization-profile-form';
+import { requireAuthorizationManager } from '~/utils/authorization-permissions';
 import { buildBoardAuthorizationProfileInputFromFormData } from '~/utils/executive-authorizations';
 import { appMetaTags } from '~/utils/meta';
 
@@ -30,9 +31,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     userId: user.id,
   });
 
-  if (!canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole)) {
-    throw new Response('Forbidden', { status: 403 });
-  }
+  requireAuthorizationManager(team.currentTeamRole);
 
   const profile = await getExecutiveAuthorizationProfile({
     teamId: team.id,
@@ -60,9 +59,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     userId: user.id,
   });
 
-  if (!canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole)) {
-    throw new Response('Forbidden', { status: 403 });
-  }
+  requireAuthorizationManager(team.currentTeamRole);
 
   const signerRoles = getAuthorizationTemplate(templateKey).signing.signerRoles;
   const formData = await request.formData();
