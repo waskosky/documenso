@@ -4,8 +4,11 @@ import { prisma } from '@documenso/prisma';
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
 import { createAuthorizationSigningEnvelope } from './create-authorization-signing-envelope';
 import { refreshExecutiveAuthorizationStatus } from './refresh-executive-authorization-status';
+import { normalizeAuthorizationSigners } from './stored-signers';
+import type { AuthorizationTemplateKey } from './types';
 
 type SendExecutiveAuthorizationOptions = {
   id: string;
@@ -56,9 +59,68 @@ export const sendExecutiveAuthorization = async ({
         userId,
       });
 
+  const integrityAuthorization = await prisma.executiveAuthorization.findFirst({
+    select: {
+      envelope: {
+        select: {
+          externalId: true,
+          id: true,
+          recipients: {
+            orderBy: {
+              signingOrder: 'asc',
+            },
+            select: {
+              email: true,
+              fields: {
+                select: {
+                  height: true,
+                  page: true,
+                  positionX: true,
+                  positionY: true,
+                  type: true,
+                  width: true,
+                },
+              },
+              name: true,
+              role: true,
+              signingOrder: true,
+            },
+          },
+        },
+      },
+      id: true,
+      renderedMarkdown: true,
+      signers: true,
+      templateKey: true,
+      title: true,
+    },
+    where: {
+      envelopeId: envelope.id,
+      id,
+      teamId,
+    },
+  });
+
+  if (!integrityAuthorization?.envelope) {
+    throw new AppError(AppErrorCode.NOT_FOUND, {
+      message: 'Authorization signing envelope not found.',
+    });
+  }
+
+  await assertAuthorizationEnvelopeIntegrity({
+    authorization: {
+      id: integrityAuthorization.id,
+      renderedMarkdown: integrityAuthorization.renderedMarkdown,
+      signers: normalizeAuthorizationSigners(integrityAuthorization.signers),
+      templateKey: integrityAuthorization.templateKey as AuthorizationTemplateKey,
+      title: integrityAuthorization.title,
+    },
+    envelope: integrityAuthorization.envelope,
+  });
+
   await sendDocument({
     id: {
-      id: envelope.id,
+      id: integrityAuthorization.envelope.id,
       type: 'envelopeId',
     },
     requestMetadata,
