@@ -5,6 +5,7 @@ import { documentRouter } from './document-router/router';
 import { embeddingPresignRouter } from './embedding-router/_router';
 import { enterpriseRouter } from './enterprise-router/router';
 import { envelopeRouter } from './envelope-router/router';
+import { executiveAuthorizationRouter } from './executive-authorization-router/router';
 import { fieldRouter } from './field-router/router';
 import { folderRouter } from './folder-router/router';
 import { organisationRouter } from './organisation-router/router';
@@ -18,6 +19,7 @@ import { webhookRouter } from './webhook-router/router';
 export const appRouter = router({
   enterprise: enterpriseRouter,
   envelope: envelopeRouter,
+  executiveAuthorization: executiveAuthorizationRouter,
   auth: authRouter,
   profile: profileRouter,
   document: documentRouter,
