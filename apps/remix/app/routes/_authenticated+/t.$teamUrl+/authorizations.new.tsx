@@ -13,6 +13,7 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { Form, Link, redirect, useActionData } from 'react-router';
 
 import { BoardAuthorizationForm } from '~/components/executive-authorizations/board-authorization-form';
+import { requireAuthorizationManager } from '~/utils/authorization-permissions';
 import { buildBoardAuthorizationInputFromFormData } from '~/utils/executive-authorizations';
 import { appMetaTags } from '~/utils/meta';
 
@@ -30,6 +31,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     teamUrl: params.teamUrl,
     userId: user.id,
   });
+  requireAuthorizationManager(team.currentTeamRole);
   const profile = await getExecutiveAuthorizationProfile({
     teamId: team.id,
     templateKey,
@@ -52,6 +54,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     teamUrl: params.teamUrl,
     userId: user.id,
   });
+  requireAuthorizationManager(team.currentTeamRole);
   const formData = await request.formData();
   const signerRoles = getAuthorizationTemplate(templateKey).signing.signerRoles;
 

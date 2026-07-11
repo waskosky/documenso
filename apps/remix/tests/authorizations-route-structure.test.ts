@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const routeDirectory = path.resolve(process.cwd(), 'apps/remix/app/routes/_authenticated+/t.$teamUrl+');
@@ -24,4 +24,12 @@ assert.equal(
   existsSync(path.join(routeDirectory, 'authorizations.$id.tsx')),
   false,
   'authorization.$id.tsx shadows /authorizations/:id/edit when it has no outlet',
+);
+
+const newAuthorizationRoute = readFileSync(path.join(routeDirectory, 'authorizations.new.tsx'), 'utf8');
+
+assert.equal(
+  newAuthorizationRoute.match(/requireAuthorizationManager\(team\.currentTeamRole\)/g)?.length,
+  2,
+  'new authorization loader and action must both require team-management permission',
 );
