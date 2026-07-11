@@ -38,11 +38,8 @@ const getList = (formData: FormData, key: string) =>
     .map((value) => value.trim())
     .filter(Boolean);
 
-export const buildBoardAuthorizationInputFromFormData = (
-  formData: FormData,
-  signerRoles: readonly AuthorizationTemplateSignerRole[],
-) => {
-  const directors = buildAuthorizationSignerSlots(signerRoles)
+const buildBoardDirectorsFromFormData = (formData: FormData, signerRoles: readonly AuthorizationTemplateSignerRole[]) =>
+  buildAuthorizationSignerSlots(signerRoles)
     .filter((slot) => slot.roleKey === 'director')
     .map((slot) => ({
       email: getString(formData, getAuthorizationSignerFieldName(slot, 'email')),
@@ -51,6 +48,27 @@ export const buildBoardAuthorizationInputFromFormData = (
       vote: getString(formData, getAuthorizationSignerFieldName(slot, 'vote')) || 'For',
     }))
     .filter((director) => director.name || director.email);
+
+export const buildBoardAuthorizationProfileInputFromFormData = (
+  formData: FormData,
+  signerRoles: readonly AuthorizationTemplateSignerRole[],
+) => ({
+  authorizedOfficerName: getString(formData, 'authorizedOfficerName'),
+  authorizedOfficerTitle: getString(formData, 'authorizedOfficerTitle'),
+  companyLegalName: getString(formData, 'companyLegalName'),
+  consentMethod: getString(formData, 'consentMethod'),
+  directors: buildBoardDirectorsFromFormData(formData, signerRoles),
+  entityType: getString(formData, 'entityType'),
+  jurisdiction: getString(formData, 'jurisdiction'),
+  resolutionDisposition: getString(formData, 'resolutionDisposition'),
+  secretaryName: getString(formData, 'secretaryName'),
+});
+
+export const buildBoardAuthorizationInputFromFormData = (
+  formData: FormData,
+  signerRoles: readonly AuthorizationTemplateSignerRole[],
+) => {
+  const directors = buildBoardDirectorsFromFormData(formData, signerRoles);
 
   return {
     notes: getString(formData, 'notes'),

@@ -16,6 +16,10 @@ assert.ok(
   existsSync(path.join(routeDirectory, 'authorizations.$id.edit.tsx')),
   'authorization edit route should remain a sibling child under the authorization id layout',
 );
+assert.ok(
+  existsSync(path.join(routeDirectory, 'authorizations.settings.tsx')),
+  'authorization profile settings should have a dedicated team route',
+);
 assert.equal(
   existsSync(path.join(routeDirectory, 'authorizations.$id.tsx')),
   false,

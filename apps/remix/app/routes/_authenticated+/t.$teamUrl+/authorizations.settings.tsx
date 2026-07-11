@@ -1,28 +1,27 @@
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
-import { createExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/create-executive-authorization';
 import { getExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization-profile';
 import { parseAuthorizationTemplateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
 import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
+import { upsertExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/upsert-executive-authorization-profile';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
-import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
+import { canExecuteTeamAction, formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
 import { msg } from '@lingui/core/macro';
-import { Trans } from '@lingui/react/macro';
-import { ArrowLeftIcon } from 'lucide-react';
+import { ArrowLeftIcon, SaveIcon } from 'lucide-react';
 import { Form, Link, redirect, useActionData } from 'react-router';
 
-import { BoardAuthorizationForm } from '~/components/executive-authorizations/board-authorization-form';
-import { buildBoardAuthorizationInputFromFormData } from '~/utils/executive-authorizations';
+import { AuthorizationProfileForm } from '~/components/executive-authorizations/authorization-profile-form';
+import { buildBoardAuthorizationProfileInputFromFormData } from '~/utils/executive-authorizations';
 import { appMetaTags } from '~/utils/meta';
 
-import type { Route } from './+types/authorizations.new';
-
-export function meta() {
-  return appMetaTags(msg`New Authorization`.id as never);
-}
+import type { Route } from './+types/authorizations.settings';
 
 const templateKey = 'board_resolution_secretary_certificate' as const;
+
+export function meta() {
+  return appMetaTags(msg`Authorization Defaults`.id as never);
+}
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const { user } = await getSession(request);
@@ -30,18 +29,26 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     teamUrl: params.teamUrl,
     userId: user.id,
   });
+
+  if (!canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole)) {
+    throw new Response('Forbidden', { status: 403 });
+  }
+
   const profile = await getExecutiveAuthorizationProfile({
     teamId: team.id,
     templateKey,
   });
+  const profileDefaults = profile?.payloadDefaults
+    ? parseAuthorizationTemplateProfilePayload({
+        payload: profile.payloadDefaults,
+        templateKey,
+      })
+    : null;
 
   return {
-    profileDefaults: profile?.payloadDefaults
-      ? parseAuthorizationTemplateProfilePayload({
-          payload: profile.payloadDefaults,
-          templateKey,
-        })
-      : null,
+    authorizationsPath: formatAuthorizationsPath(team.url),
+    profileDefaults,
+    saved: new URL(request.url).searchParams.get('saved') === '1',
     signerRoles: getAuthorizationTemplate(templateKey).signing.signerRoles,
   };
 }
@@ -52,76 +59,74 @@ export async function action({ params, request }: Route.ActionArgs) {
     teamUrl: params.teamUrl,
     userId: user.id,
   });
-  const formData = await request.formData();
+
+  if (!canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole)) {
+    throw new Response('Forbidden', { status: 403 });
+  }
+
   const signerRoles = getAuthorizationTemplate(templateKey).signing.signerRoles;
+  const formData = await request.formData();
 
   try {
-    const authorization = await createExecutiveAuthorization({
-      ...buildBoardAuthorizationInputFromFormData(formData, signerRoles),
+    await upsertExecutiveAuthorizationProfile({
+      payloadDefaults: buildBoardAuthorizationProfileInputFromFormData(formData, signerRoles),
       teamId: team.id,
-      userId: user.id,
+      templateKey,
     });
 
-    throw redirect(`${formatAuthorizationsPath(team.url)}/${authorization.id}`);
+    throw redirect(`${formatAuthorizationsPath(team.url)}/settings?saved=1`);
   } catch (error) {
     if (error instanceof Response) {
       throw error;
     }
 
     return {
-      error: error instanceof Error ? error.message : 'Unable to create authorization.',
+      error: error instanceof Error ? error.message : 'Unable to save authorization defaults.',
     };
   }
 }
 
-export default function NewAuthorizationPage({ loaderData, params }: Route.ComponentProps) {
+export default function AuthorizationSettingsPage({ loaderData }: Route.ComponentProps) {
   const actionData = useActionData<typeof action>();
-  const authorizationsPath = formatAuthorizationsPath(params.teamUrl);
+  const { authorizationsPath, profileDefaults, saved, signerRoles } = loaderData;
 
   return (
     <div className="mx-auto w-full max-w-screen-lg px-4 md:px-8">
       <Button asChild variant="ghost" className="mb-6 -ml-3">
         <Link to={authorizationsPath}>
           <ArrowLeftIcon className="mr-2 h-4 w-4" />
-          <Trans>Authorizations</Trans>
+          Authorizations
         </Link>
       </Button>
 
       <div className="mb-8">
-        <h1 className="font-semibold text-3xl">
-          <Trans>New board authorization</Trans>
-        </h1>
-        <p className="mt-2 max-w-2xl text-muted-foreground text-sm">
-          <Trans>
-            Fill the structured decision record first. The generated certificate can then be used for Documenso signing
-            and future audit trails.
-          </Trans>
-        </p>
+        <h1 className="font-semibold text-3xl">Authorization defaults</h1>
       </div>
+
+      {saved && (
+        <Alert className="mb-6">
+          <AlertTitle>Defaults saved</AlertTitle>
+          <AlertDescription>New board authorizations will start with these values.</AlertDescription>
+        </Alert>
+      )}
 
       {actionData?.error && (
         <Alert variant="destructive" className="mb-6">
-          <AlertTitle>
-            <Trans>Unable to create authorization</Trans>
-          </AlertTitle>
+          <AlertTitle>Unable to save defaults</AlertTitle>
           <AlertDescription>{actionData.error}</AlertDescription>
         </Alert>
       )}
 
       <Form method="post">
-        <BoardAuthorizationForm
-          defaultValues={loaderData.profileDefaults ?? undefined}
-          signerRoles={loaderData.signerRoles}
-        />
+        <AuthorizationProfileForm defaultValues={profileDefaults ?? undefined} signerRoles={signerRoles} />
 
         <div className="mt-6 flex justify-end gap-3">
           <Button asChild variant="outline">
-            <Link to={authorizationsPath}>
-              <Trans>Cancel</Trans>
-            </Link>
+            <Link to={authorizationsPath}>Cancel</Link>
           </Button>
           <Button type="submit">
-            <Trans>Create authorization</Trans>
+            <SaveIcon className="mr-2 h-4 w-4" />
+            Save defaults
           </Button>
         </div>
       </Form>
