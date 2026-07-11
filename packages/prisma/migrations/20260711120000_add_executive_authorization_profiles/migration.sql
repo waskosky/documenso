@@ -1,5 +1,8 @@
 -- AlterTable
-ALTER TABLE "ExecutiveAuthorization" ADD COLUMN "externalId" TEXT;
+ALTER TABLE "ExecutiveAuthorization"
+ADD COLUMN "externalId" TEXT,
+ADD COLUMN "requestFingerprint" TEXT,
+ADD COLUMN "generatedDocumentDataId" TEXT;
 
 -- CreateTable
 CREATE TABLE "ExecutiveAuthorizationProfile" (

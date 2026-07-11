@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { parseAuthorizationTemplatePayload, ZBoardResolutionCertificatePayloadSchema } from './schema';
+import { findDuplicateAuthorizationSignerEmail } from './signer-email';
 import { getAuthorizationTemplate } from './templates';
 import type {
   AuthorizationTemplateKey,
@@ -47,6 +48,18 @@ const ZBoardResolutionCertificateProfilePayloadSchema = ZBoardResolutionCertific
         });
       }
     });
+
+    const duplicateEmail = findDuplicateAuthorizationSignerEmail(
+      payload.directors.map((director) => director.email ?? ''),
+    );
+
+    if (duplicateEmail) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Each signer must have a unique email address. Duplicate: "${duplicateEmail}".`,
+        path: ['directors'],
+      });
+    }
 
     const template = getAuthorizationTemplate('board_resolution_secretary_certificate');
     const directorRole = template.signing.signerRoles.find((role) => role.key === 'director');

@@ -41,6 +41,7 @@ const createData = buildExecutiveAuthorizationCreateData({
 });
 
 assert.equal(createData.externalId, parsed.externalId);
+assert.match(createData.requestFingerprint ?? '', /^[a-f0-9]{64}$/);
 assert.equal(createData.teamId, parsed.teamId);
 assert.equal(createData.createdByUserId, parsed.userId);
 

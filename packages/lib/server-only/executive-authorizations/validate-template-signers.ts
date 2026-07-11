@@ -1,3 +1,4 @@
+import { findDuplicateAuthorizationSignerEmail } from './signer-email';
 import { getAuthorizationTemplate } from './templates';
 import type { AuthorizationSigner, AuthorizationTemplateKey } from './types';
 
@@ -18,7 +19,6 @@ export const validateAuthorizationTemplateSigners = ({
       [normalizeRole(role.label), role] as const,
     ]),
   );
-  const signerEmails = new Set<string>();
 
   signers.forEach((signer, index) => {
     if (!signer.name.trim()) {
@@ -29,18 +29,16 @@ export const validateAuthorizationTemplateSigners = ({
       throw new Error(`Signer "${signer.name}" is missing an email address.`);
     }
 
-    const normalizedEmail = signer.email.trim().toLowerCase();
-
-    if (signerEmails.has(normalizedEmail)) {
-      throw new Error(`Each signer must have a unique email address. Duplicate: "${signer.email.trim()}".`);
-    }
-
-    signerEmails.add(normalizedEmail);
-
     if (!allowedRoles.has(normalizeRole(signer.role))) {
       throw new Error(`Unexpected signer role "${signer.role}" for template "${template.label}".`);
     }
   });
+
+  const duplicateEmail = findDuplicateAuthorizationSignerEmail(signers.map((signer) => signer.email));
+
+  if (duplicateEmail) {
+    throw new Error(`Each signer must have a unique email address. Duplicate: "${duplicateEmail}".`);
+  }
 
   for (const role of configuredRoles) {
     const roleCount = signers.filter((signer) => {

@@ -132,4 +132,24 @@ assert.throws(
   /Director 2.*email address/i,
 );
 
+for (const duplicateEmail of [
+  stableBoardDefaults.directors[0].email,
+  stableBoardDefaults.directors[0].email.toUpperCase(),
+  ` ${stableBoardDefaults.directors[0].email} `,
+]) {
+  assert.throws(
+    () =>
+      parseAuthorizationTemplateProfilePayload({
+        payload: {
+          ...stableBoardDefaults,
+          directors: stableBoardDefaults.directors.map((director, index) =>
+            index === 1 ? { ...director, email: duplicateEmail } : director,
+          ),
+        },
+        templateKey,
+      }),
+    /unique email address/i,
+  );
+}
+
 console.log('authorization profile payload tests passed');

@@ -29,6 +29,7 @@ const plan = buildAuthorizationEnvelopePlan({
     },
   ],
   templateKey: 'board_resolution_secretary_certificate',
+  templateVersion: 1,
   title: 'Approval of SAFE Financing',
 });
 
@@ -88,7 +89,22 @@ assert.throws(
         },
       ],
       templateKey: 'board_resolution_secretary_certificate',
+      templateVersion: 1,
       title: 'Missing Email',
     }),
   /email address/i,
+);
+
+assert.throws(
+  () =>
+    buildAuthorizationEnvelopePlan({
+      authorizationId: 'auth_unknown_version',
+      renderedMarkdown: '# Unknown Version',
+      signaturePageNumber: 1,
+      signers: [],
+      templateKey: 'board_resolution_secretary_certificate',
+      templateVersion: 999,
+      title: 'Unknown Version',
+    }),
+  /template version 999/i,
 );

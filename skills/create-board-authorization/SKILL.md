@@ -23,7 +23,7 @@ Create a logged Documenso authorization draft from decision facts. The API creat
 4. Resolve material ambiguity before creation. Do not invent decision terms, dates, reviewed materials, conditions, people, or email addresses.
 5. Build a stable, unique `externalId`. Prefer `board-YYYY-MM-DD-<short-subject>`; reuse the same value when retrying the same decision.
 6. Create the draft with `scripts/board_authorization.py create --input REQUEST.json` or pipe the JSON over standard input.
-7. Confirm the response has three signers, six fields, an envelope ID, and no `generationError`. Give the user the authorization and editor URLs for review.
+7. Confirm the response has three signers, six actual fields, an envelope ID, `integrityValid: true`, and no `generationError` or `integrityError`. Give the user the authorization and editor URLs for review.
 
 Do not send, expose recipient signing URLs/tokens, or claim approval. Sending remains a separate, explicit human action after review.
 
@@ -33,4 +33,4 @@ Proactively append significant, reusable facts to `~/docs/executive-assistant/bo
 
 ## Failure Handling
 
-An API error means no success. A non-null `generationError` means the authorization record exists but the envelope needs repair or regeneration. Report the recoverable authorization URL and error; do not retry with a new `externalId`.
+An API error means no success. A non-null `generationError` means the authorization record exists but the envelope needs repair or regeneration. A non-null `integrityError` or false `integrityValid` means the envelope does not match the durable authorization record. Report the recoverable authorization URL and error; do not retry with a new `externalId`.

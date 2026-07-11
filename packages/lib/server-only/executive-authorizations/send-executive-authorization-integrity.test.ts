@@ -8,5 +8,8 @@ const sendCall = source.indexOf('await sendDocument');
 assert.ok(integrityCall >= 0, 'send flow must assert authorization envelope integrity');
 assert.ok(sendCall >= 0, 'send flow must call Documenso sendDocument');
 assert.ok(integrityCall < sendCall, 'integrity assertion must run before Documenso sendDocument');
+assert.match(source, /generatedDocumentDataId:\s*true/);
+assert.match(source, /envelopeItems:\s*{/);
+assert.match(source, /envelopeItemId:\s*true/);
 
 console.log('executive authorization send integrity wiring tests passed');

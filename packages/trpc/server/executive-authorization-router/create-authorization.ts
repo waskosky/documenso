@@ -43,6 +43,7 @@ export const createAuthorizationRoute = authenticatedProcedure
     return buildCreateAuthorizationResponse({
       authorization: result.authorization,
       generationError: result.generationError,
+      integrityError: result.integrityError,
       teamUrl: team.url,
       webAppUrl: NEXT_PUBLIC_WEBAPP_URL(),
     });

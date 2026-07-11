@@ -11,6 +11,7 @@ import {
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { createEnvelope } from '../envelope/create-envelope';
+import { withAuthorizationEnvelopeGenerationLock } from './authorization-envelope-generation-lock';
 import { buildAuthorizationEnvelopePlan } from './build-authorization-envelope-plan';
 import { generateAuthorizationPdf } from './generate-authorization-pdf';
 import { normalizeAuthorizationSigners } from './stored-signers';
@@ -24,7 +25,7 @@ type CreateAuthorizationSigningEnvelopeOptions = {
   userId: number;
 };
 
-export const createAuthorizationSigningEnvelope = async ({
+const createAuthorizationSigningEnvelopeUnlocked = async ({
   id,
   requestMetadata,
   teamId,
@@ -72,6 +73,7 @@ export const createAuthorizationSigningEnvelope = async ({
     signaturePageNumber: pdf.signaturePageNumber,
     signers,
     templateKey: authorization.templateKey as AuthorizationTemplateKey,
+    templateVersion: authorization.templateVersion,
     title: authorization.title,
   });
 
@@ -150,6 +152,7 @@ export const createAuthorizationSigningEnvelope = async ({
   await prisma.executiveAuthorization.update({
     data: {
       envelopeId: envelope.id,
+      generatedDocumentDataId: documentData.id,
       signers: statusUpdate.signers,
       status:
         statusUpdate.status === ExecutiveAuthorizationStatus.READY
@@ -163,3 +166,10 @@ export const createAuthorizationSigningEnvelope = async ({
 
   return envelope;
 };
+
+export const createAuthorizationSigningEnvelope = async (options: CreateAuthorizationSigningEnvelopeOptions) =>
+  await withAuthorizationEnvelopeGenerationLock({
+    authorizationId: options.id,
+    operation: async () => await createAuthorizationSigningEnvelopeUnlocked(options),
+    teamId: options.teamId,
+  });

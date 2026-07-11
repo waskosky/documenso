@@ -132,47 +132,67 @@ ${renderDirectorSignatureRows(payload)}
   };
 };
 
-export const AUTHORIZATION_TEMPLATES = {
-  board_resolution_secretary_certificate: {
-    key: 'board_resolution_secretary_certificate',
-    label: 'Board Resolution and Secretary Certificate',
-    render: renderBoardResolutionCertificate,
-    signing: {
-      fieldPlacements: [
-        {
-          appliesTo: 'all_signers',
-          field: 'SIGNATURE',
-          height: 5.5,
-          page: 'signature_page',
-          positionX: 30,
-          positionY: { start: 28, step: 18 },
-          width: 38,
-        },
-        {
-          appliesTo: 'all_signers',
-          field: 'DATE',
-          height: 4.5,
-          page: 'signature_page',
-          positionX: 75,
-          positionY: { start: 28.5, step: 18 },
-          width: 14,
-        },
-      ],
-      signerRoles: [
-        {
-          key: 'director',
-          label: 'Director',
-          maxCount: 3,
-          minCount: 3,
-          required: true,
-        },
-      ],
-    },
-    type: 'BOARD_RESOLUTION',
-    version: 1,
+const BOARD_RESOLUTION_SECRETARY_CERTIFICATE_V1: AuthorizationTemplate<BoardResolutionCertificatePayload> = {
+  key: 'board_resolution_secretary_certificate',
+  label: 'Board Resolution and Secretary Certificate',
+  render: renderBoardResolutionCertificate,
+  signing: {
+    fieldPlacements: [
+      {
+        appliesTo: 'all_signers',
+        field: 'SIGNATURE',
+        height: 5.5,
+        page: 'signature_page',
+        positionX: 30,
+        positionY: { start: 28, step: 18 },
+        width: 38,
+      },
+      {
+        appliesTo: 'all_signers',
+        field: 'DATE',
+        height: 4.5,
+        page: 'signature_page',
+        positionX: 75,
+        positionY: { start: 28.5, step: 18 },
+        width: 14,
+      },
+    ],
+    signerRoles: [
+      {
+        key: 'director',
+        label: 'Director',
+        maxCount: 3,
+        minCount: 3,
+        required: true,
+      },
+    ],
   },
+  type: 'BOARD_RESOLUTION',
+  version: 1,
+};
+
+export const AUTHORIZATION_TEMPLATES = {
+  board_resolution_secretary_certificate: BOARD_RESOLUTION_SECRETARY_CERTIFICATE_V1,
 } satisfies {
   board_resolution_secretary_certificate: AuthorizationTemplate<BoardResolutionCertificatePayload>;
 };
 
-export const getAuthorizationTemplate = (key: AuthorizationTemplateKey) => AUTHORIZATION_TEMPLATES[key];
+const AUTHORIZATION_TEMPLATE_VERSIONS = {
+  board_resolution_secretary_certificate: new Map([
+    [BOARD_RESOLUTION_SECRETARY_CERTIFICATE_V1.version, BOARD_RESOLUTION_SECRETARY_CERTIFICATE_V1],
+  ]),
+};
+
+export const getAuthorizationTemplate = (key: AuthorizationTemplateKey, version?: number) => {
+  if (version === undefined) {
+    return AUTHORIZATION_TEMPLATES[key];
+  }
+
+  const template = AUTHORIZATION_TEMPLATE_VERSIONS[key].get(version);
+
+  if (!template) {
+    throw new Error(`Authorization template version ${version} is not registered for "${key}".`);
+  }
+
+  return template;
+};

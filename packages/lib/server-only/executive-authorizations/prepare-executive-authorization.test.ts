@@ -87,3 +87,29 @@ assert.throws(
     }),
   /exactly 3 Director signers/i,
 );
+
+for (const invalidActionDate of ['2026-02-31', '2026-13-01', '07/09/2026', '2026-7-9']) {
+  assert.throws(
+    () =>
+      prepareExecutiveAuthorizationRecord({
+        notes: prepared.notes,
+        payload: {
+          ...prepared.payload,
+          actionDate: invalidActionDate,
+        },
+        templateKey: prepared.templateKey,
+      }),
+    /valid date.*YYYY-MM-DD/i,
+  );
+}
+
+assert.doesNotThrow(() =>
+  prepareExecutiveAuthorizationRecord({
+    notes: prepared.notes,
+    payload: {
+      ...prepared.payload,
+      actionDate: '2028-02-29',
+    },
+    templateKey: prepared.templateKey,
+  }),
+);

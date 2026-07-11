@@ -1,6 +1,8 @@
 import { prisma } from '@documenso/prisma';
 import { Prisma } from '@prisma/client';
 
+import { AppError, AppErrorCode } from '../../errors/app-error';
+import { buildExecutiveAuthorizationRequestFingerprint } from './authorization-request-fingerprint';
 import { prepareExecutiveAuthorizationRecord } from './prepare-executive-authorization';
 import { type TCreateExecutiveAuthorization, ZCreateExecutiveAuthorizationSchema } from './schema';
 
@@ -18,6 +20,7 @@ export const buildExecutiveAuthorizationCreateData = ({
   notes: prepared.notes,
   payload: prepared.payload,
   renderedMarkdown: prepared.renderedMarkdown,
+  requestFingerprint: buildExecutiveAuthorizationRequestFingerprint(prepared),
   signers: prepared.signers,
   status: prepared.status,
   teamId: parsed.teamId,
@@ -33,6 +36,17 @@ export const createExecutiveAuthorization = async (
 ) => {
   const parsed = ZCreateExecutiveAuthorizationSchema.parse(input);
   const externalId = parsed.externalId;
+  const prepared = prepareExecutiveAuthorizationRecord(parsed);
+  const requestFingerprint = buildExecutiveAuthorizationRequestFingerprint(prepared);
+
+  const assertMatchingRequest = (existing: { requestFingerprint?: string | null }) => {
+    if (existing.requestFingerprint !== requestFingerprint) {
+      throw new AppError(AppErrorCode.ALREADY_EXISTS, {
+        message: `External ID "${externalId}" is already associated with a different request.`,
+        statusCode: 409,
+      });
+    }
+  };
 
   if (externalId) {
     const existing = await prismaClient.executiveAuthorization.findUnique({
@@ -45,11 +59,10 @@ export const createExecutiveAuthorization = async (
     });
 
     if (existing) {
+      assertMatchingRequest(existing);
       return existing;
     }
   }
-
-  const prepared = prepareExecutiveAuthorizationRecord(parsed);
 
   try {
     return await prismaClient.executiveAuthorization.create({
@@ -73,6 +86,7 @@ export const createExecutiveAuthorization = async (
       throw error;
     }
 
+    assertMatchingRequest(existing);
     return existing;
   }
 };
