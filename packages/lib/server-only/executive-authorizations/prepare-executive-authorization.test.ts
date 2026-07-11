@@ -74,3 +74,16 @@ assert.deepEqual(prepared.signers, [
     signingOrder: 3,
   },
 ]);
+
+assert.throws(
+  () =>
+    prepareExecutiveAuthorizationRecord({
+      notes: prepared.notes,
+      payload: {
+        ...prepared.payload,
+        directors: prepared.payload.directors.slice(0, 2),
+      },
+      templateKey: prepared.templateKey,
+    }),
+  /exactly 3 Director signers/i,
+);

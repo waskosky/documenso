@@ -6,6 +6,7 @@ import { Form, Link, redirect, useActionData } from 'react-router';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { getExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization';
+import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import type { BoardResolutionCertificatePayload } from '@documenso/lib/server-only/executive-authorizations/types';
 import { updateExecutiveAuthorizationDraft } from '@documenso/lib/server-only/executive-authorizations/update-executive-authorization';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
@@ -51,6 +52,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     authorizationDetailPath: `${formatAuthorizationsPath(team.url)}/${authorization.id}`,
     authorizationsPath: formatAuthorizationsPath(team.url),
+    signerRoles: getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles,
   };
 }
 
@@ -61,10 +63,11 @@ export async function action({ params, request }: Route.ActionArgs) {
     userId: user.id,
   });
   const formData = await request.formData();
+  const signerRoles = getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles;
 
   try {
     const authorization = await updateExecutiveAuthorizationDraft({
-      ...buildBoardAuthorizationInputFromFormData(formData),
+      ...buildBoardAuthorizationInputFromFormData(formData, signerRoles),
       id: params.id,
       teamId: team.id,
     });
@@ -83,7 +86,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 export default function EditAuthorizationPage({ loaderData }: Route.ComponentProps) {
   const actionData = useActionData<typeof action>();
-  const { authorization, authorizationDetailPath, authorizationsPath } = loaderData;
+  const { authorization, authorizationDetailPath, authorizationsPath, signerRoles } = loaderData;
 
   return (
     <div className="mx-auto w-full max-w-screen-lg px-4 md:px-8">
@@ -113,6 +116,7 @@ export default function EditAuthorizationPage({ loaderData }: Route.ComponentPro
       <Form method="post">
         <BoardAuthorizationForm
           defaultValues={{ ...authorization.payload, notes: authorization.notes }}
+          signerRoles={signerRoles}
         />
 
         <div className="mt-6 flex justify-end gap-3">
