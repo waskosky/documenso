@@ -14,7 +14,18 @@ assert.doesNotThrow(() =>
   validateAuthorizationTemplateSigners({
     signers,
     templateKey,
+    templateVersion: 1,
   }),
+);
+
+assert.throws(
+  () =>
+    validateAuthorizationTemplateSigners({
+      signers,
+      templateKey,
+      templateVersion: 999,
+    }),
+  /template version 999/i,
 );
 
 for (const invalidCount of [1, 2, 4]) {

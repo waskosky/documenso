@@ -10,22 +10,26 @@ Create a logged Documenso authorization draft from decision facts. The API creat
 ## Workflow
 
 1. Read `references/api.md` before the first API operation in a session.
-2. Get the current profile with `scripts/board_authorization.py profile-get`. Stable company, officer, and three-director details come from this profile. Update it only when the user explicitly changes those defaults.
+2. Get the current profile with `scripts/board_authorization.py profile-get`. Do not create a draft when `exists` is false or `needsUpgrade` is true. Stable organization, governance thresholds, officer, secretary, and three-director details come from this profile. Update it only with values explicitly approved by the user.
 3. Gather the variable decision facts:
    - `actionDate` (prefer `YYYY-MM-DD`)
+   - `certificateDate` (prefer `YYYY-MM-DD`; it must not precede `actionDate`)
    - `actionTitle`
    - `matterDescription`
    - `materialsReviewed` (an array, including source-document names or URLs)
-   - `resolutionTerms`
-   - `investorCondition` (use a clear statement such as `None` only when the user confirms none applies)
+   - `specificAction`
+   - optional `specificTerms`
+   - optional `deliveryRecipient` and `deliveryCondition` (provide both or neither)
+   - `ratifyPriorActions` (required boolean; use `true` only after explicit confirmation)
    - optional `notes`
-   Ordinary create payloads must contain only these decision fields. Do not override profile-backed company, officer, secretary, director, jurisdiction, consent, or disposition values. A person named in the authorized action belongs in `resolutionTerms`; it is not a profile change.
+   Ordinary create payloads must contain only these decision fields. Do not override profile-backed organization, governance, officer, secretary, director, action-method, or disposition values. A person or entity specific to this decision belongs in `specificAction`, `specificTerms`, or the paired delivery fields; it is not a profile change.
+   When the profile disposition is `NOT_APPROVED`, `ratifyPriorActions` must be `false` and the delivery fields must be omitted.
 4. Resolve material ambiguity before creation. Do not invent decision terms, dates, reviewed materials, conditions, people, or email addresses.
 5. Build a stable, unique `externalId`. Prefer `board-YYYY-MM-DD-<short-subject>`; reuse the same value when retrying the same decision.
 6. Create the draft with `scripts/board_authorization.py create --input REQUEST.json` or pipe the JSON over standard input.
-7. Confirm the response has three signers, six actual fields, an envelope ID, `integrityValid: true`, and no `generationError` or `integrityError`. Give the user the authorization and editor URLs for review.
+7. Confirm the response has exactly three signers, nine actual fields, an envelope ID, `integrityValid: true`, and no `generationError` or `integrityError`. Give the user the authorization and editor URLs for review.
 
-Do not send, expose recipient signing URLs/tokens, or claim approval. Sending remains a separate, explicit human action after review.
+Do not send, expose recipient signing URLs/tokens, or claim approval. Sending remains a separate, explicit human action after the generated READY envelope has been reviewed.
 
 ## Durable Log
 

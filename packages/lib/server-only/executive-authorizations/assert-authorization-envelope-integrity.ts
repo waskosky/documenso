@@ -30,8 +30,35 @@ const integrityError = (message: string): never => {
 };
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
-const normalizeFields = <TField extends { type: string }>(fields: TField[]) =>
-  [...fields].sort((left, right) => left.type.localeCompare(right.type));
+const normalizeFields = <
+  TField extends {
+    height: unknown;
+    page: number;
+    positionX: unknown;
+    positionY: unknown;
+    type: string;
+    width: unknown;
+  },
+>(
+  fields: TField[],
+) =>
+  [...fields].sort((left, right) => {
+    const typeDifference = left.type.localeCompare(right.type);
+
+    if (typeDifference !== 0) {
+      return typeDifference;
+    }
+
+    for (const property of ['page', 'positionY', 'positionX', 'width', 'height'] as const) {
+      const difference = Number(left[property]) - Number(right[property]);
+
+      if (difference !== 0) {
+        return difference;
+      }
+    }
+
+    return 0;
+  });
 const numericValuesMatch = (left: unknown, right: unknown) => {
   const leftNumber = Number(left);
   const rightNumber = Number(right);
@@ -63,6 +90,7 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
   const pdf = await generateAuthorizationPdf({
     renderedMarkdown: authorization.renderedMarkdown,
     signers: authorization.signers,
+    templateVersion: authorization.templateVersion,
     title: authorization.title,
   });
   const expected = buildAuthorizationEnvelopePlan({

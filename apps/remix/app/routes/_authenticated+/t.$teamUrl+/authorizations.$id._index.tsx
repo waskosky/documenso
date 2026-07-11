@@ -166,9 +166,7 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
   const canGenerate =
     canManage && authorization.status === ExecutiveAuthorizationStatus.DRAFT && !authorization.envelope;
   const canSend =
-    canManage &&
-    (authorization.status === ExecutiveAuthorizationStatus.DRAFT ||
-      authorization.status === ExecutiveAuthorizationStatus.READY);
+    canManage && authorization.status === ExecutiveAuthorizationStatus.READY && Boolean(authorization.envelope);
   const canRefresh = canManage && Boolean(authorization.envelope);
 
   return (

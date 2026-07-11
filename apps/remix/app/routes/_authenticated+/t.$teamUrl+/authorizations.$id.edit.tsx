@@ -1,7 +1,10 @@
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { getExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization';
 import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
-import type { BoardResolutionCertificatePayload } from '@documenso/lib/server-only/executive-authorizations/types';
+import type {
+  BoardResolutionCertificatePayload,
+  BoardResolutionCertificatePayloadV1,
+} from '@documenso/lib/server-only/executive-authorizations/types';
 import { updateExecutiveAuthorizationDraft } from '@documenso/lib/server-only/executive-authorizations/update-executive-authorization';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
 import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
@@ -44,16 +47,26 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     throw new Response('Only draft authorizations can be edited.', { status: 400 });
   }
 
+  if (
+    authorization.templateKey !== 'board_resolution_secretary_certificate' ||
+    (authorization.templateVersion !== 1 && authorization.templateVersion !== 2)
+  ) {
+    throw new Response('This authorization template version is not supported by the editor.', { status: 400 });
+  }
+
+  const template = getAuthorizationTemplate(authorization.templateKey, authorization.templateVersion);
+
   return {
     authorization: {
       id: authorization.id,
       notes: authorization.notes,
-      payload: authorization.payload as BoardResolutionCertificatePayload,
+      payload: authorization.payload as BoardResolutionCertificatePayload | BoardResolutionCertificatePayloadV1,
+      templateVersion: authorization.templateVersion as 1 | 2,
       title: authorization.title,
     },
     authorizationDetailPath: `${formatAuthorizationsPath(team.url)}/${authorization.id}`,
     authorizationsPath: formatAuthorizationsPath(team.url),
-    signerRoles: getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles,
+    signerRoles: template.signing.signerRoles,
   };
 }
 
@@ -65,11 +78,28 @@ export async function action({ params, request }: Route.ActionArgs) {
   });
   requireAuthorizationManager(team.currentTeamRole);
   const formData = await request.formData();
-  const signerRoles = getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles;
+  const existing = await getExecutiveAuthorization({
+    id: params.id,
+    teamId: team.id,
+  });
+
+  if (
+    !existing ||
+    existing.templateKey !== 'board_resolution_secretary_certificate' ||
+    (existing.templateVersion !== 1 && existing.templateVersion !== 2)
+  ) {
+    throw new Response('This authorization template version is not supported by the editor.', { status: 400 });
+  }
+
+  const template = getAuthorizationTemplate(existing.templateKey, existing.templateVersion);
+  const formInput =
+    existing.templateVersion === 1
+      ? buildBoardAuthorizationInputFromFormData(formData, template.signing.signerRoles, 1)
+      : buildBoardAuthorizationInputFromFormData(formData, template.signing.signerRoles, 2);
 
   try {
     const authorization = await updateExecutiveAuthorizationDraft({
-      ...buildBoardAuthorizationInputFromFormData(formData, signerRoles),
+      ...formInput,
       id: params.id,
       teamId: team.id,
     });
@@ -119,6 +149,7 @@ export default function EditAuthorizationPage({ loaderData }: Route.ComponentPro
         <BoardAuthorizationForm
           defaultValues={{ ...authorization.payload, notes: authorization.notes }}
           signerRoles={signerRoles}
+          templateVersion={authorization.templateVersion}
         />
 
         <div className="mt-6 flex justify-end gap-3">

@@ -31,6 +31,7 @@ const input = {
   },
   teamId: 3,
   templateKey: 'board_resolution_secretary_certificate' as const,
+  templateVersion: 1,
   userId: 1,
 };
 

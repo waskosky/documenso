@@ -15,6 +15,9 @@ export const normalizeAuthorizationSigners = (value: unknown): AuthorizationSign
 
       return {
         email: typeof data.email === 'string' ? data.email : '',
+        executionRoles: Array.isArray(data.executionRoles)
+          ? data.executionRoles.filter((role): role is string => typeof role === 'string')
+          : undefined,
         name: typeof data.name === 'string' ? data.name : 'Unnamed signer',
         recipientId: typeof data.recipientId === 'number' ? data.recipientId : undefined,
         role: typeof data.role === 'string' ? data.role : 'Signer',

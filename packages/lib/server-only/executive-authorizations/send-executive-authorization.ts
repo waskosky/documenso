@@ -6,7 +6,6 @@ import { ExecutiveAuthorizationStatus } from '@prisma/client';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
 import { withAuthorizationEnvelopeLock } from './authorization-envelope-lock';
-import { createAuthorizationSigningEnvelope } from './create-authorization-signing-envelope';
 import { refreshExecutiveAuthorizationStatus } from './refresh-executive-authorization-status';
 import { normalizeAuthorizationSigners } from './stored-signers';
 import type { AuthorizationTemplateKey } from './types';
@@ -42,23 +41,13 @@ export const sendExecutiveAuthorization = async ({
     });
   }
 
-  if (
-    authorization.status !== ExecutiveAuthorizationStatus.DRAFT &&
-    authorization.status !== ExecutiveAuthorizationStatus.READY
-  ) {
+  if (authorization.status !== ExecutiveAuthorizationStatus.READY || !authorization.envelopeId) {
     throw new AppError(AppErrorCode.INVALID_REQUEST, {
-      message: 'Only draft or ready authorizations can be sent.',
+      message: 'Only ready authorizations with a reviewed signing envelope can be sent.',
     });
   }
 
-  const envelope = authorization.envelopeId
-    ? { id: authorization.envelopeId }
-    : await createAuthorizationSigningEnvelope({
-        id,
-        requestMetadata,
-        teamId,
-        userId,
-      });
+  const envelope = { id: authorization.envelopeId };
 
   return await withAuthorizationEnvelopeLock({
     authorizationId: id,
@@ -122,12 +111,9 @@ export const sendExecutiveAuthorization = async ({
         });
       }
 
-      if (
-        integrityAuthorization.status !== ExecutiveAuthorizationStatus.DRAFT &&
-        integrityAuthorization.status !== ExecutiveAuthorizationStatus.READY
-      ) {
+      if (integrityAuthorization.status !== ExecutiveAuthorizationStatus.READY) {
         throw new AppError(AppErrorCode.INVALID_REQUEST, {
-          message: 'Only draft or ready authorizations can be sent.',
+          message: 'Only ready authorizations with a reviewed signing envelope can be sent.',
         });
       }
 

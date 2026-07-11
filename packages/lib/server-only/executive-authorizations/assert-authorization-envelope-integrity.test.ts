@@ -22,6 +22,7 @@ void (async () => {
   const pdf = await generateAuthorizationPdf({
     renderedMarkdown: authorization.renderedMarkdown,
     signers,
+    templateVersion: authorization.templateVersion,
     title: authorization.title,
   });
   const plan = buildAuthorizationEnvelopePlan({
@@ -190,6 +191,69 @@ void (async () => {
       alteredCase.expected,
     );
   }
+
+  const versionTwoSigners = [
+    { ...signers[0], executionRoles: ['Secretary'] },
+    { ...signers[1], executionRoles: ['Authorized Officer'] },
+    { ...signers[2], executionRoles: [] },
+  ];
+  const versionTwoAuthorization = {
+    ...authorization,
+    generatedDocumentDataId: 'document_data_v2',
+    id: 'authorization_v2',
+    signers: versionTwoSigners,
+    templateVersion: 2,
+  };
+  const versionTwoPdf = await generateAuthorizationPdf({
+    renderedMarkdown: versionTwoAuthorization.renderedMarkdown,
+    signers: versionTwoSigners,
+    templateVersion: 2,
+    title: versionTwoAuthorization.title,
+  });
+  const versionTwoPlan = buildAuthorizationEnvelopePlan({
+    authorizationId: versionTwoAuthorization.id,
+    renderedMarkdown: versionTwoAuthorization.renderedMarkdown,
+    signaturePageNumber: versionTwoPdf.signaturePageNumber,
+    signers: versionTwoSigners,
+    templateKey: versionTwoAuthorization.templateKey,
+    templateVersion: 2,
+    title: versionTwoAuthorization.title,
+  });
+  const versionTwoEnvelopeItem = {
+    documentDataId: versionTwoAuthorization.generatedDocumentDataId,
+    id: 'envelope_item_v2',
+  };
+  const versionTwoEnvelope = {
+    envelopeItems: [versionTwoEnvelopeItem],
+    externalId: versionTwoPlan.externalId,
+    formValues: null,
+    id: 'envelope_v2',
+    recipients: versionTwoPlan.recipients.map((recipient, recipientIndex) => ({
+      email: recipient.email,
+      fields: recipient.fields
+        .map((field, fieldIndex) => ({
+          ...field,
+          envelopeItemId: versionTwoEnvelopeItem.id,
+          id: recipientIndex * 10 + fieldIndex + 1,
+        }))
+        .reverse(),
+      id: recipientIndex + 10,
+      name: recipient.name,
+      role: recipient.role,
+      signingOrder: recipient.signingOrder,
+    })),
+  };
+
+  assert.equal(
+    versionTwoEnvelope.recipients.reduce((count, recipient) => count + recipient.fields.length, 0),
+    9,
+  );
+  await assert.doesNotReject(() =>
+    assertAuthorizationEnvelopeIntegrity({
+      authorization: versionTwoAuthorization,
+      envelope: versionTwoEnvelope,
+    }),
+  );
 
   console.log('authorization envelope integrity tests passed');
 })();

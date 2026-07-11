@@ -8,6 +8,7 @@ import { getExecutiveAuthorization } from './get-executive-authorization';
 import { getExecutiveAuthorizationProfile } from './get-executive-authorization-profile';
 import { mergeAuthorizationProfilePayload } from './profile-payload';
 import { normalizeAuthorizationSigners } from './stored-signers';
+import { getAuthorizationTemplate } from './templates';
 import type { AuthorizationTemplateKey } from './types';
 
 type AuthorizationEnvelopeIntegrityInput = Parameters<typeof assertAuthorizationEnvelopeIntegrity>[0];
@@ -38,7 +39,7 @@ type ProfiledExecutiveAuthorizationDependencies = {
   getProfile: (input: {
     teamId: number;
     templateKey: AuthorizationTemplateKey;
-  }) => Promise<{ payloadDefaults?: unknown } | null>;
+  }) => Promise<{ payloadDefaults?: unknown; templateVersion?: number } | null>;
 };
 
 const defaultDependencies: ProfiledExecutiveAuthorizationDependencies = {
@@ -80,10 +81,19 @@ export const createProfiledExecutiveAuthorization = async (
     throw new Error(`Authorization defaults are not configured for template "${templateKey}".`);
   }
 
+  const templateVersion = getAuthorizationTemplate(templateKey).version;
+
+  if (profile.templateVersion !== templateVersion) {
+    throw new Error(
+      `Authorization defaults for template "${templateKey}" must be reviewed and upgraded to version ${templateVersion}.`,
+    );
+  }
+
   const mergedPayload = mergeAuthorizationProfilePayload({
     payload,
     profilePayload: profile.payloadDefaults,
     templateKey,
+    templateVersion,
   });
   const authorization = await dependencies.createAuthorization({
     externalId,

@@ -16,6 +16,10 @@ const createTypes = readFileSync(
   'utf8',
 );
 const profileTypes = readFileSync(profileTypesPath, 'utf8');
+const getProfileRoute = readFileSync(
+  path.join(serverDirectory, 'executive-authorization-router/get-profile.ts'),
+  'utf8',
+);
 
 assert.match(rootRouter, /executiveAuthorization:\s*executiveAuthorizationRouter/);
 assert.match(authorizationRouter, /create:\s*createAuthorizationRoute/);
@@ -26,5 +30,8 @@ assert.match(createTypes, /path:\s*'\/executive-authorization\/create'/);
 assert.match(profileTypes, /profilePath\s*=\s*'\/executive-authorization\/profile\/\{templateKey\}'/);
 assert.match(profileTypes, /method:\s*'GET'[\s\S]*path:\s*profilePath/);
 assert.match(profileTypes, /method:\s*'POST'[\s\S]*path:\s*profilePath/);
+assert.match(profileTypes, /currentTemplateVersion:\s*z\.number\(\)/);
+assert.match(profileTypes, /needsUpgrade:\s*z\.boolean\(\)/);
+assert.match(getProfileRoute, /needsUpgrade/);
 
 console.log('executive authorization API route tests passed');

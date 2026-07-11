@@ -79,7 +79,12 @@ const placementAppliesToSigner = (placement: AuthorizationTemplateFieldPlacement
     return true;
   }
 
-  return placement.appliesTo.signerRole.toLowerCase() === signer.role.toLowerCase();
+  const expectedRole = placement.appliesTo.signerRole.toLowerCase();
+
+  return (
+    expectedRole === signer.role.toLowerCase() ||
+    signer.executionRoles?.some((role) => role.toLowerCase() === expectedRole) === true
+  );
 };
 
 const buildFieldFromPlacement = ({

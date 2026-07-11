@@ -5,6 +5,7 @@ import type { AuthorizationSigner } from './types';
 type GenerateAuthorizationPdfOptions = {
   renderedMarkdown: string;
   signers: AuthorizationSigner[];
+  templateVersion?: number;
   title: string;
 };
 
@@ -62,6 +63,7 @@ const wrapLine = (line: string, fontSize: number, usableWidth = PAGE_WIDTH - MAR
 export const generateAuthorizationPdf = async ({
   renderedMarkdown,
   signers,
+  templateVersion = 1,
   title,
 }: GenerateAuthorizationPdfOptions): Promise<GenerateAuthorizationPdfResult> => {
   const pdf = await PDFDocument.create();
@@ -111,21 +113,29 @@ export const generateAuthorizationPdf = async ({
   const signaturePage = pdf.addPage(PageSizes.Letter);
   const signaturePageNumber = pdf.getPageCount();
 
-  signaturePage.drawText('Director Written Consent Signatures', {
-    font,
-    size: 16,
-    x: MARGIN_X,
-    y: 700,
-  });
-  signaturePage.drawText('The undersigned directors approve and adopt the authorization attached above.', {
-    font,
-    size: 10,
-    x: MARGIN_X,
-    y: 672,
-  });
+  signaturePage.drawText(
+    templateVersion >= 2 ? 'Board Authorization Execution' : 'Director Written Consent Signatures',
+    {
+      font,
+      size: 16,
+      x: MARGIN_X,
+      y: 700,
+    },
+  );
+  signaturePage.drawText(
+    templateVersion >= 2
+      ? 'This execution page is incorporated into the attached authorization.'
+      : 'The undersigned directors approve and adopt the authorization attached above.',
+    {
+      font,
+      size: 10,
+      x: MARGIN_X,
+      y: 672,
+    },
+  );
 
   signers.forEach((signer, index) => {
-    const rowY = 575 - index * 140;
+    const rowY = templateVersion >= 2 ? 610 - index * 103 : 575 - index * 140;
 
     signaturePage.drawText(signer.name || `Director ${index + 1}`, {
       font,
@@ -133,10 +143,10 @@ export const generateAuthorizationPdf = async ({
       x: MARGIN_X,
       y: rowY,
     });
-    signaturePage.drawText('Signature:', {
+    signaturePage.drawText(templateVersion >= 2 ? 'Director Signature:' : 'Signature:', {
       font,
       size: 10,
-      x: 184,
+      x: templateVersion >= 2 ? 150 : 184,
       y: rowY,
     });
     signaturePage.drawText('________________________________', {
@@ -158,6 +168,77 @@ export const generateAuthorizationPdf = async ({
       y: rowY,
     });
   });
+
+  if (templateVersion >= 2) {
+    const secretary = signers.find((signer) => signer.executionRoles?.includes('Secretary'));
+    const authorizedOfficer = signers.find((signer) => signer.executionRoles?.includes('Authorized Officer'));
+
+    if (!secretary || !authorizedOfficer) {
+      throw new Error('Template version 2 requires Secretary and Authorized Officer director assignments.');
+    }
+
+    signaturePage.drawText('Secretary Certification', {
+      font,
+      size: 12,
+      x: MARGIN_X,
+      y: 275,
+    });
+    signaturePage.drawText(secretary.name, {
+      font,
+      size: 10,
+      x: MARGIN_X,
+      y: 240,
+    });
+    signaturePage.drawText('Signature:', {
+      font,
+      size: 10,
+      x: 184,
+      y: 240,
+    });
+    signaturePage.drawText('_____________________________', {
+      font,
+      size: 10,
+      x: 248,
+      y: 240,
+    });
+    signaturePage.drawText('Execution Date:', {
+      font,
+      size: 10,
+      x: 414,
+      y: 240,
+    });
+    signaturePage.drawText('____________', {
+      font,
+      size: 10,
+      x: 492,
+      y: 240,
+    });
+
+    signaturePage.drawText('Authorized Officer Acknowledgment', {
+      font,
+      size: 12,
+      x: MARGIN_X,
+      y: 170,
+    });
+    signaturePage.drawText(authorizedOfficer.name, {
+      font,
+      size: 10,
+      x: MARGIN_X,
+      y: 135,
+    });
+    signaturePage.drawText('Signature:', {
+      font,
+      size: 10,
+      x: 184,
+      y: 135,
+    });
+    signaturePage.drawText('________________________________', {
+      font,
+      size: 10,
+      x: 248,
+      y: 135,
+    });
+  }
 
   const bytes = Buffer.from(await pdf.save());
 

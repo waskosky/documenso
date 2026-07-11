@@ -24,15 +24,82 @@ export type AuthorizationStatusRecipient = {
 export type BuildAuthorizationStatusUpdateOptions = {
   completedAt: Date | null;
   envelopeStatus: DocumentStatus;
-  existingSigners?: AuthorizationSigner[];
+  existingSigners: AuthorizationSigner[];
   recipients: AuthorizationStatusRecipient[];
+};
+
+type AuthorizationEnvelopeStatusOptions = Pick<
+  BuildAuthorizationStatusUpdateOptions,
+  'completedAt' | 'envelopeStatus' | 'recipients'
+>;
+
+const normalizeSignerIdentity = (value: string) => value.trim().toLowerCase();
+
+const sortRecipients = (recipients: AuthorizationStatusRecipient[]) =>
+  [...recipients].sort((a, b) => {
+    const orderA = a.signingOrder ?? Number.MAX_SAFE_INTEGER;
+    const orderB = b.signingOrder ?? Number.MAX_SAFE_INTEGER;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    return a.id - b.id;
+  });
+
+const sortSigners = (signers: AuthorizationSigner[]) => [...signers].sort((a, b) => a.signingOrder - b.signingOrder);
+
+const assertDurableSignerContract = ({
+  existingSigners,
+  recipients,
+}: Pick<BuildAuthorizationStatusUpdateOptions, 'existingSigners' | 'recipients'>) => {
+  const sortedRecipients = sortRecipients(recipients);
+  const sortedSigners = sortSigners(existingSigners);
+
+  if (sortedRecipients.length !== sortedSigners.length) {
+    throw new Error(
+      `Authorization recipient count must remain ${sortedSigners.length}; received ${sortedRecipients.length}.`,
+    );
+  }
+
+  sortedSigners.forEach((signer, index) => {
+    const recipient = sortedRecipients[index];
+    const recipientNumber = index + 1;
+
+    if (!recipient) {
+      throw new Error(`Authorization recipient ${recipientNumber} is missing.`);
+    }
+
+    if (recipient.role !== RecipientRole.SIGNER) {
+      throw new Error(`Authorization recipient ${recipientNumber} role must remain SIGNER.`);
+    }
+
+    if (normalizeSignerIdentity(recipient.name) !== normalizeSignerIdentity(signer.name)) {
+      throw new Error(`Authorization recipient ${recipientNumber} name does not match the durable signer record.`);
+    }
+
+    if (normalizeSignerIdentity(recipient.email) !== normalizeSignerIdentity(signer.email)) {
+      throw new Error(`Authorization recipient ${recipientNumber} email does not match the durable signer record.`);
+    }
+
+    if (recipient.signingOrder !== signer.signingOrder) {
+      throw new Error(
+        `Authorization recipient ${recipientNumber} signing order must remain ${signer.signingOrder}; received ${String(recipient.signingOrder)}.`,
+      );
+    }
+  });
+
+  return {
+    recipients: sortedRecipients,
+    signers: sortedSigners,
+  };
 };
 
 const mapEnvelopeStatus = ({
   completedAt,
   envelopeStatus,
   recipients,
-}: BuildAuthorizationStatusUpdateOptions): ExecutiveAuthorizationStatus => {
+}: AuthorizationEnvelopeStatusOptions): ExecutiveAuthorizationStatus => {
   const signerRecipients = recipients.filter((recipient) => recipient.role === RecipientRole.SIGNER);
 
   if ((envelopeStatus as string) === 'CANCELLED') {
@@ -65,7 +132,7 @@ const mapEnvelopeStatus = ({
   return ExecutiveAuthorizationStatus.READY;
 };
 
-const deriveCompletedAt = ({ completedAt, recipients }: BuildAuthorizationStatusUpdateOptions) => {
+const deriveCompletedAt = ({ completedAt, recipients }: AuthorizationEnvelopeStatusOptions) => {
   if (completedAt) {
     return completedAt;
   }
@@ -90,51 +157,38 @@ const deriveCompletedAt = ({ completedAt, recipients }: BuildAuthorizationStatus
 export const buildAuthorizationStatusUpdate = ({
   completedAt,
   envelopeStatus,
-  existingSigners = [],
+  existingSigners,
   recipients,
 }: BuildAuthorizationStatusUpdateOptions) => {
-  const existingSignersByEmail = new Map(
-    existingSigners.map((signer) => [signer.email.trim().toLowerCase(), signer] as const),
-  );
+  const durableContract = assertDurableSignerContract({ existingSigners, recipients });
 
   const status = mapEnvelopeStatus({
     completedAt,
     envelopeStatus,
-    recipients,
+    recipients: durableContract.recipients,
   });
 
   return {
     completedAt:
       status === ExecutiveAuthorizationStatus.COMPLETED
-        ? deriveCompletedAt({ completedAt, envelopeStatus, recipients })
+        ? deriveCompletedAt({ completedAt, envelopeStatus, recipients: durableContract.recipients })
         : undefined,
-    signers: recipients
-      .filter((recipient) => recipient.role === RecipientRole.SIGNER)
-      .sort((a, b) => {
-        const orderA = a.signingOrder ?? Number.MAX_SAFE_INTEGER;
-        const orderB = b.signingOrder ?? Number.MAX_SAFE_INTEGER;
+    signers: durableContract.signers.map((signer, index) => {
+      const recipient = durableContract.recipients[index];
 
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
+      if (!recipient) {
+        throw new Error(`Authorization recipient ${index + 1} is missing.`);
+      }
 
-        return a.id - b.id;
-      })
-      .map((recipient, index) => {
-        const existingSigner = existingSignersByEmail.get(recipient.email.trim().toLowerCase());
-
-        return {
-          email: recipient.email,
-          name: recipient.name,
-          recipientId: recipient.id,
-          role: existingSigner?.role ?? recipient.role,
-          sendStatus: recipient.sendStatus,
-          signedAt: recipient.signedAt?.toISOString() ?? null,
-          signingOrder: recipient.signingOrder ?? index + 1,
-          signingUrl: formatSigningLink(recipient.token),
-          status: recipient.signingStatus,
-        };
-      }),
+      return {
+        ...signer,
+        recipientId: recipient.id,
+        sendStatus: recipient.sendStatus,
+        signedAt: recipient.signedAt?.toISOString() ?? null,
+        signingUrl: formatSigningLink(recipient.token),
+        status: recipient.signingStatus,
+      };
+    }),
     status,
   };
 };

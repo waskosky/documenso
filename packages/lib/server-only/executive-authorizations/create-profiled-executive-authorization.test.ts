@@ -4,27 +4,37 @@ import { createProfiledExecutiveAuthorization } from './create-profiled-executiv
 
 const templateKey = 'board_resolution_secretary_certificate' as const;
 const profilePayload = {
-  authorizedOfficerName: 'Morgan Officer',
+  actionMethod: 'UNANIMOUS_WRITTEN_CONSENT',
+  approvalRequiredCount: 2,
+  authorizedOfficerDirectorIndex: 1,
+  authorizedOfficerName: 'Director Two',
   authorizedOfficerTitle: 'President',
   companyLegalName: 'Example Company, Inc.',
-  consentMethod: 'unanimous written consent',
   directors: [
-    { email: 'one@example.test', name: 'Director One', presence: 'Consented', vote: 'For' },
-    { email: 'two@example.test', name: 'Director Two', presence: 'Consented', vote: 'For' },
-    { email: 'three@example.test', name: 'Director Three', presence: 'Consented', vote: 'For' },
+    { email: 'one@example.test', name: 'Director One', presence: 'CONSENTED', vote: 'FOR' },
+    { email: 'two@example.test', name: 'Director Two', presence: 'CONSENTED', vote: 'FOR' },
+    { email: 'three@example.test', name: 'Director Three', presence: 'CONSENTED', vote: 'FOR' },
   ],
   entityType: 'corporation',
+  equityHolderPlural: 'stockholders',
+  governingBodyName: 'Board of Directors',
+  governingMemberPlural: 'directors',
+  governingMemberSingular: 'director',
   jurisdiction: 'Colorado',
-  resolutionDisposition: 'approved unanimously',
-  secretaryName: 'Taylor Secretary',
+  quorumRequiredCount: 2,
+  resolutionDisposition: 'APPROVED_UNANIMOUSLY',
+  secretaryDirectorIndex: 0,
+  secretaryName: 'Director One',
 };
 const decisionPayload = {
   actionDate: '2026-07-11',
   actionTitle: 'Approve example transaction',
-  investorCondition: 'Internal approval requirement',
+  certificateDate: '2026-07-12',
   materialsReviewed: ['Transaction summary'],
   matterDescription: 'Approval of an example transaction.',
-  resolutionTerms: 'the example transaction',
+  ratifyPriorActions: true,
+  specificAction: 'the example transaction',
+  specificTerms: 'on the terms presented to the Board',
 };
 
 const input = {
@@ -76,7 +86,7 @@ void (async () => {
       return Promise.resolve({ id: 'envelope_example' });
     },
     getAuthorization: () => Promise.resolve(readyAuthorization as never),
-    getProfile: () => Promise.resolve({ payloadDefaults: profilePayload }),
+    getProfile: () => Promise.resolve({ payloadDefaults: profilePayload, templateVersion: 2 }),
   };
 
   const result = await createProfiledExecutiveAuthorization(input, dependencies);
@@ -141,6 +151,15 @@ void (async () => {
         getProfile: () => Promise.resolve(null),
       }),
     /authorization defaults.*not configured/i,
+  );
+
+  await assert.rejects(
+    () =>
+      createProfiledExecutiveAuthorization(input, {
+        ...dependencies,
+        getProfile: () => Promise.resolve({ payloadDefaults: profilePayload, templateVersion: 1 }),
+      }),
+    /reviewed and upgraded to version 2/i,
   );
 
   console.log('profiled executive authorization orchestration tests passed');

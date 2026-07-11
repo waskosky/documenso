@@ -28,6 +28,7 @@ const prepared = prepareExecutiveAuthorizationRecord({
     secretaryName: 'Taylor Secretary',
   },
   templateKey: 'board_resolution_secretary_certificate',
+  templateVersion: 1,
 });
 
 const updateData = buildExecutiveAuthorizationUpdateData(prepared);

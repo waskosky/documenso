@@ -49,7 +49,10 @@ export const updateExecutiveAuthorizationDraft = async (input: unknown) => {
     });
   }
 
-  const prepared = prepareExecutiveAuthorizationRecord(parsed);
+  const prepared = prepareExecutiveAuthorizationRecord({
+    ...parsed,
+    templateVersion: existing.templateVersion,
+  });
 
   return await prisma.executiveAuthorization.update({
     data: buildExecutiveAuthorizationUpdateData(prepared),

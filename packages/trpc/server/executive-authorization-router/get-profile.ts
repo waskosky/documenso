@@ -1,6 +1,7 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { getExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization-profile';
 import { parseAuthorizationTemplateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
+import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import { getTeamById } from '@documenso/lib/server-only/team/get-team';
 import { canExecuteTeamAction } from '@documenso/lib/utils/teams';
 
@@ -32,16 +33,21 @@ export const getAuthorizationProfileRoute = authenticatedProcedure
       teamId: team.id,
       templateKey: input.templateKey,
     });
+    const currentTemplateVersion = getAuthorizationTemplate(input.templateKey).version;
+    const storedTemplateVersion = profile?.templateVersion ?? null;
 
     return {
+      currentTemplateVersion,
       exists: Boolean(profile),
+      needsUpgrade: Boolean(profile && storedTemplateVersion !== currentTemplateVersion),
       payloadDefaults: profile?.payloadDefaults
         ? parseAuthorizationTemplateProfilePayload({
             payload: profile.payloadDefaults,
             templateKey: input.templateKey,
+            templateVersion: storedTemplateVersion ?? 1,
           })
         : null,
       templateKey: input.templateKey,
-      templateVersion: profile?.templateVersion ?? null,
+      templateVersion: storedTemplateVersion,
     };
   });

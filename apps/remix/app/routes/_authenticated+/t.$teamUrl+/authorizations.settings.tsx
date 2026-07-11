@@ -37,18 +37,28 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     teamId: team.id,
     templateKey,
   });
-  const profileDefaults = profile?.payloadDefaults
-    ? parseAuthorizationTemplateProfilePayload({
-        payload: profile.payloadDefaults,
-        templateKey,
-      })
-    : null;
+  const template = getAuthorizationTemplate(templateKey);
+
+  if (template.version !== 2) {
+    throw new Response('The current board authorization template is not supported by this form.', { status: 500 });
+  }
+
+  const profileNeedsUpgrade = Boolean(profile && profile.templateVersion !== template.version);
+  const profileDefaults =
+    profile?.payloadDefaults && !profileNeedsUpgrade
+      ? parseAuthorizationTemplateProfilePayload({
+          payload: profile.payloadDefaults,
+          templateKey,
+          templateVersion: template.version,
+        })
+      : null;
 
   return {
     authorizationsPath: formatAuthorizationsPath(team.url),
     profileDefaults,
+    profileNeedsUpgrade,
     saved: new URL(request.url).searchParams.get('saved') === '1',
-    signerRoles: getAuthorizationTemplate(templateKey).signing.signerRoles,
+    signerRoles: template.signing.signerRoles,
   };
 }
 
@@ -85,7 +95,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 export default function AuthorizationSettingsPage({ loaderData }: Route.ComponentProps) {
   const actionData = useActionData<typeof action>();
-  const { authorizationsPath, profileDefaults, saved, signerRoles } = loaderData;
+  const { authorizationsPath, profileDefaults, profileNeedsUpgrade, saved, signerRoles } = loaderData;
 
   return (
     <div className="mx-auto w-full max-w-screen-lg px-4 md:px-8">
@@ -104,6 +114,16 @@ export default function AuthorizationSettingsPage({ loaderData }: Route.Componen
         <Alert className="mb-6">
           <AlertTitle>Defaults saved</AlertTitle>
           <AlertDescription>New board authorizations will start with these values.</AlertDescription>
+        </Alert>
+      )}
+
+      {profileNeedsUpgrade && (
+        <Alert className="mb-6">
+          <AlertTitle>Review required</AlertTitle>
+          <AlertDescription>
+            Existing defaults belong to an earlier certificate version. Complete every current field and save to upgrade
+            the profile; signer role assignments have intentionally not been inferred.
+          </AlertDescription>
         </Alert>
       )}
 

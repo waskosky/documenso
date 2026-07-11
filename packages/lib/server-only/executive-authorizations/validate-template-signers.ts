@@ -7,11 +7,13 @@ const normalizeRole = (value: string) => value.trim().toLowerCase();
 export const validateAuthorizationTemplateSigners = ({
   signers,
   templateKey,
+  templateVersion,
 }: {
   signers: AuthorizationSigner[];
   templateKey: AuthorizationTemplateKey;
+  templateVersion?: number;
 }) => {
-  const template = getAuthorizationTemplate(templateKey);
+  const template = getAuthorizationTemplate(templateKey, templateVersion);
   const configuredRoles = template.signing.signerRoles;
   const allowedRoles = new Map(
     configuredRoles.flatMap((role) => [

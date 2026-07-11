@@ -32,7 +32,9 @@ export const ZUpdateAuthorizationProfileRequestSchema = ZGetAuthorizationProfile
 });
 
 export const ZAuthorizationProfileResponseSchema = z.object({
+  currentTemplateVersion: z.number().int().positive(),
   exists: z.boolean(),
+  needsUpgrade: z.boolean(),
   payloadDefaults: z.record(z.unknown()).nullable(),
   templateKey: ZAuthorizationTemplateKeySchema,
   templateVersion: z.number().int().positive().nullable(),
