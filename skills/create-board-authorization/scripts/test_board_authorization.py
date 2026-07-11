@@ -26,9 +26,6 @@ class _ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self._handle_request()
 
-    def do_PUT(self):
-        self._handle_request()
-
     def log_message(self, _format, *_args):
         return
 
@@ -157,7 +154,7 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             {
                 "authorization": f"Bearer {TEST_TOKEN}",
                 "body": {"payloadDefaults": profile},
-                "method": "PUT",
+                "method": "POST",
                 "path": "/api/v2/executive-authorization/profile/board_resolution_secretary_certificate",
             },
         )

@@ -16,7 +16,7 @@ export const getAuthorizationProfileMeta: TrpcRouteMeta = {
 
 export const updateAuthorizationProfileMeta: TrpcRouteMeta = {
   openapi: {
-    method: 'PUT',
+    method: 'POST',
     path: profilePath,
     summary: 'Update executive authorization defaults',
     tags: ['Executive Authorization'],
