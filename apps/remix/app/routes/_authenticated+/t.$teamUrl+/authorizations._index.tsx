@@ -64,22 +64,22 @@ export default function AuthorizationsPage({ loaderData }: Route.ComponentProps)
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {canManage && (
+        {canManage && (
+          <div className="flex items-center gap-2">
             <Button asChild variant="outline">
               <Link to={`${authorizationsPath}/settings`}>
                 <SlidersHorizontalIcon className="mr-2 h-4 w-4" />
                 <Trans>Defaults</Trans>
               </Link>
             </Button>
-          )}
-          <Button asChild>
-            <Link to={`${authorizationsPath}/new`}>
-              <PlusIcon className="mr-2 h-4 w-4" />
-              <Trans>New authorization</Trans>
-            </Link>
-          </Button>
-        </div>
+            <Button asChild>
+              <Link to={`${authorizationsPath}/new`}>
+                <PlusIcon className="mr-2 h-4 w-4" />
+                <Trans>New authorization</Trans>
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="mt-8">
