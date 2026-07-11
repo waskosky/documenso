@@ -205,7 +205,7 @@ Use `authenticatedProcedure`, API token context, `getTeamById`, and `canExecuteT
 
 ```text
 GET   /api/v2/executive-authorization/profile/{templateKey}
-PUT   /api/v2/executive-authorization/profile/{templateKey}
+POST  /api/v2/executive-authorization/profile/{templateKey}
 POST  /api/v2/executive-authorization/create
 ```
 

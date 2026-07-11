@@ -110,7 +110,7 @@ def main():
             path = f"/api/v2/executive-authorization/profile/{quote(arguments.template_key, safe='')}"
         else:
             body = {"payloadDefaults": _load_json(arguments.input)}
-            method = "PUT"
+            method = "POST"
             path = f"/api/v2/executive-authorization/profile/{quote(arguments.template_key, safe='')}"
 
         response = _request(

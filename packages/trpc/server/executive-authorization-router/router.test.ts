@@ -25,6 +25,6 @@ assert.match(authorizationRouter, /update:\s*updateAuthorizationProfileRoute/);
 assert.match(createTypes, /path:\s*'\/executive-authorization\/create'/);
 assert.match(profileTypes, /profilePath\s*=\s*'\/executive-authorization\/profile\/\{templateKey\}'/);
 assert.match(profileTypes, /method:\s*'GET'[\s\S]*path:\s*profilePath/);
-assert.match(profileTypes, /method:\s*'PUT'[\s\S]*path:\s*profilePath/);
+assert.match(profileTypes, /method:\s*'POST'[\s\S]*path:\s*profilePath/);
 
 console.log('executive authorization API route tests passed');
