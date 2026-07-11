@@ -43,6 +43,7 @@ const prepared = prepareExecutiveAuthorizationRecord({
     secretaryName: 'Sam Secretary',
   },
   templateKey: 'board_resolution_secretary_certificate',
+  templateVersion: 1,
 });
 
 assert.equal(prepared.companyLegalName, 'Disclosure Comics Inc.');
@@ -84,6 +85,7 @@ assert.throws(
         directors: prepared.payload.directors.slice(0, 2),
       },
       templateKey: prepared.templateKey,
+      templateVersion: 1,
     }),
   /exactly 3 Director signers/i,
 );
@@ -98,6 +100,7 @@ for (const invalidActionDate of ['2026-02-31', '2026-13-01', '07/09/2026', '2026
           actionDate: invalidActionDate,
         },
         templateKey: prepared.templateKey,
+        templateVersion: 1,
       }),
     /valid date.*YYYY-MM-DD/i,
   );
@@ -111,5 +114,6 @@ assert.doesNotThrow(() =>
       actionDate: '2028-02-29',
     },
     templateKey: prepared.templateKey,
+    templateVersion: 1,
   }),
 );

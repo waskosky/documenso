@@ -1,13 +1,14 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import { upsertExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/upsert-executive-authorization-profile';
 import { getTeamById } from '@documenso/lib/server-only/team/get-team';
 import { canExecuteTeamAction } from '@documenso/lib/utils/teams';
 
 import { authenticatedProcedure } from '../trpc';
 import {
-  updateAuthorizationProfileMeta,
   ZAuthorizationProfileResponseSchema,
   ZUpdateAuthorizationProfileRequestSchema,
+  updateAuthorizationProfileMeta,
 } from './profile.types';
 
 export const updateAuthorizationProfileRoute = authenticatedProcedure
@@ -34,7 +35,9 @@ export const updateAuthorizationProfileRoute = authenticatedProcedure
     });
 
     return {
+      currentTemplateVersion: getAuthorizationTemplate(input.templateKey).version,
       exists: true,
+      needsUpgrade: false,
       payloadDefaults: profile.payloadDefaults as Record<string, unknown>,
       templateKey: input.templateKey,
       templateVersion: profile.templateVersion ?? null,

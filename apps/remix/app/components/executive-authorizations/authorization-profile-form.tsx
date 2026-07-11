@@ -1,10 +1,38 @@
 import type { BoardResolutionCertificateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
 import type { AuthorizationTemplateSignerRole } from '@documenso/lib/server-only/executive-authorizations/types';
 import { Card } from '@documenso/ui/primitives/card';
-import { Input } from '@documenso/ui/primitives/input';
-import { Label } from '@documenso/ui/primitives/label';
 
-import { buildAuthorizationSignerSlots, getAuthorizationSignerFieldName } from '~/utils/executive-authorizations';
+import {
+  BoardExecutionRoleFields,
+  BoardRosterFields,
+  DatalistField,
+  Field,
+  SelectField,
+} from './board-authorization-fields';
+
+const ACTION_METHOD_OPTIONS = [
+  { label: 'Unanimous written consent', value: 'UNANIMOUS_WRITTEN_CONSENT' },
+  { label: 'Written consent', value: 'WRITTEN_CONSENT' },
+  { label: 'Board meeting', value: 'MEETING' },
+];
+
+const RESOLUTION_DISPOSITION_OPTIONS = [
+  { label: 'Approved unanimously', value: 'APPROVED_UNANIMOUSLY' },
+  { label: 'Approved by required vote', value: 'APPROVED_REQUIRED_VOTE' },
+  { label: 'Not approved', value: 'NOT_APPROVED' },
+];
+
+const ENTITY_TYPE_OPTIONS = [
+  'corporation',
+  'limited liability company',
+  'nonprofit corporation',
+  'partnership',
+];
+const BOARD_COUNT_OPTIONS = [
+  { label: '1 of 3', value: '1' },
+  { label: '2 of 3', value: '2' },
+  { label: '3 of 3', value: '3' },
+];
 
 export const AuthorizationProfileForm = ({
   defaultValues = {},
@@ -12,13 +40,10 @@ export const AuthorizationProfileForm = ({
 }: {
   defaultValues?: Partial<BoardResolutionCertificateProfilePayload>;
   signerRoles: readonly AuthorizationTemplateSignerRole[];
-}) => {
-  const directors = defaultValues.directors ?? [];
-  const signerSlots = buildAuthorizationSignerSlots(signerRoles);
-
-  return (
+}) => (
+  <>
     <Card className="p-6">
-      <h2 className="font-semibold text-lg">Organization defaults</h2>
+      <h2 className="text-lg font-semibold">Organization and governance defaults</h2>
       <div className="mt-5 grid gap-5 md:grid-cols-2">
         <Field
           label="Company legal name"
@@ -32,99 +57,98 @@ export const AuthorizationProfileForm = ({
           required
           defaultValue={defaultValues.jurisdiction ?? 'Colorado'}
         />
-        <Field
+        <DatalistField
           label="Entity type"
           name="entityType"
           required
           defaultValue={defaultValues.entityType ?? 'corporation'}
+          options={ENTITY_TYPE_OPTIONS}
         />
         <Field
-          label="Consent method"
-          name="consentMethod"
+          label="Governing body name"
+          name="governingBodyName"
           required
-          defaultValue={defaultValues.consentMethod ?? 'unanimous written consent'}
+          defaultValue={defaultValues.governingBodyName ?? 'Board of Directors'}
         />
-        <Field label="Secretary name" name="secretaryName" required defaultValue={defaultValues.secretaryName} />
         <Field
-          label="Authorized officer name"
-          name="authorizedOfficerName"
+          label="Governing member (singular)"
+          name="governingMemberSingular"
           required
-          defaultValue={defaultValues.authorizedOfficerName}
+          defaultValue={defaultValues.governingMemberSingular ?? 'director'}
         />
+        <Field
+          label="Governing members (plural)"
+          name="governingMemberPlural"
+          required
+          defaultValue={defaultValues.governingMemberPlural ?? 'directors'}
+        />
+        <Field
+          label="Equity holders (plural)"
+          name="equityHolderPlural"
+          required
+          defaultValue={defaultValues.equityHolderPlural ?? 'stockholders'}
+        />
+        <SelectField
+          label="Default action method"
+          name="actionMethod"
+          required
+          defaultValue={defaultValues.actionMethod ?? 'UNANIMOUS_WRITTEN_CONSENT'}
+          options={ACTION_METHOD_OPTIONS}
+        />
+        <SelectField
+          label="Directors required for quorum"
+          name="quorumRequiredCount"
+          required
+          defaultValue={defaultValues.quorumRequiredCount}
+          options={BOARD_COUNT_OPTIONS}
+          placeholder="Select a threshold"
+        />
+        <SelectField
+          label="FOR votes required for approval"
+          name="approvalRequiredCount"
+          required
+          defaultValue={defaultValues.approvalRequiredCount}
+          options={BOARD_COUNT_OPTIONS}
+          placeholder="Select a threshold"
+        />
+        <SelectField
+          label="Default resolution disposition"
+          name="resolutionDisposition"
+          required
+          defaultValue={defaultValues.resolutionDisposition ?? 'APPROVED_UNANIMOUSLY'}
+          options={RESOLUTION_DISPOSITION_OPTIONS}
+        />
+      </div>
+    </Card>
+
+    <Card className="mt-6 p-6">
+      <h2 className="text-lg font-semibold">Board roster</h2>
+      <div className="mt-5">
+        <BoardRosterFields
+          directors={defaultValues.directors}
+          signerRoles={signerRoles}
+          templateVersion={2}
+        />
+      </div>
+    </Card>
+
+    <Card className="mt-6 p-6">
+      <h2 className="text-lg font-semibold">Certificate and execution roles</h2>
+      <div className="mt-5 grid gap-5">
         <Field
           label="Authorized officer title"
           name="authorizedOfficerTitle"
           required
           defaultValue={defaultValues.authorizedOfficerTitle}
         />
-        <Field
-          label="Resolution disposition"
-          name="resolutionDisposition"
-          required
-          defaultValue={defaultValues.resolutionDisposition ?? 'approved unanimously'}
+      </div>
+      <div className="mt-5">
+        <BoardExecutionRoleFields
+          authorizedOfficerDirectorIndex={defaultValues.authorizedOfficerDirectorIndex}
+          secretaryDirectorIndex={defaultValues.secretaryDirectorIndex}
+          signerRoles={signerRoles}
         />
       </div>
-
-      <div className="mt-8 border-t pt-6">
-        <h2 className="font-semibold text-lg">Board roster</h2>
-        <div className="mt-5 grid gap-4">
-          {signerSlots.map((slot) => {
-            const director = slot.roleKey === 'director' ? directors[slot.roleIndex] : undefined;
-
-            return (
-              <div
-                key={`${slot.roleKey}-${slot.roleIndex}`}
-                className="grid gap-3 rounded-md border p-4 md:grid-cols-4"
-              >
-                <Field
-                  label={`${slot.roleLabel} ${slot.roleIndex + 1} name`}
-                  name={getAuthorizationSignerFieldName(slot, 'name')}
-                  required={slot.required}
-                  defaultValue={director?.name}
-                />
-                <Field
-                  label="Email"
-                  name={getAuthorizationSignerFieldName(slot, 'email')}
-                  required={slot.required}
-                  type="email"
-                  defaultValue={director?.email}
-                />
-                <Field
-                  label="Present / consenting"
-                  name={getAuthorizationSignerFieldName(slot, 'presence')}
-                  required={slot.required}
-                  defaultValue={director?.presence ?? 'Consented'}
-                />
-                <Field
-                  label="Default vote"
-                  name={getAuthorizationSignerFieldName(slot, 'vote')}
-                  required={slot.required}
-                  defaultValue={director?.vote ?? 'For'}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
     </Card>
-  );
-};
-
-const Field = ({
-  defaultValue,
-  label,
-  name,
-  required,
-  type = 'text',
-}: {
-  defaultValue?: string;
-  label: string;
-  name: string;
-  required?: boolean;
-  type?: string;
-}) => (
-  <div className="space-y-2">
-    <Label htmlFor={name}>{label}</Label>
-    <Input defaultValue={defaultValue} id={name} name={name} required={required} type={type} />
-  </div>
+  </>
 );

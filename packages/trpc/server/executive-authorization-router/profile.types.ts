@@ -1,5 +1,6 @@
-import { ZAuthorizationTemplateKeySchema } from '@documenso/lib/server-only/executive-authorizations/schema';
 import { z } from 'zod';
+
+import { ZAuthorizationTemplateKeySchema } from '@documenso/lib/server-only/executive-authorizations/schema';
 
 import type { TrpcRouteMeta } from '../trpc';
 
@@ -27,17 +28,22 @@ export const ZGetAuthorizationProfileRequestSchema = z.object({
   templateKey: ZAuthorizationTemplateKeySchema,
 });
 
-export const ZUpdateAuthorizationProfileRequestSchema = ZGetAuthorizationProfileRequestSchema.extend({
-  payloadDefaults: z.record(z.unknown()),
-});
+export const ZUpdateAuthorizationProfileRequestSchema =
+  ZGetAuthorizationProfileRequestSchema.extend({
+    payloadDefaults: z.record(z.unknown()),
+  });
 
 export const ZAuthorizationProfileResponseSchema = z.object({
+  currentTemplateVersion: z.number().int().positive(),
   exists: z.boolean(),
+  needsUpgrade: z.boolean(),
   payloadDefaults: z.record(z.unknown()).nullable(),
   templateKey: ZAuthorizationTemplateKeySchema,
   templateVersion: z.number().int().positive().nullable(),
 });
 
 export type TGetAuthorizationProfileRequest = z.infer<typeof ZGetAuthorizationProfileRequestSchema>;
-export type TUpdateAuthorizationProfileRequest = z.infer<typeof ZUpdateAuthorizationProfileRequestSchema>;
+export type TUpdateAuthorizationProfileRequest = z.infer<
+  typeof ZUpdateAuthorizationProfileRequestSchema
+>;
 export type TAuthorizationProfileResponse = z.infer<typeof ZAuthorizationProfileResponseSchema>;

@@ -37,15 +37,28 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     teamId: team.id,
     templateKey,
   });
+  const template = getAuthorizationTemplate(templateKey);
+
+  if (template.version !== 2) {
+    throw new Response('The current board authorization template is not supported by this form.', {
+      status: 500,
+    });
+  }
+
+  const profileNeedsUpgrade = Boolean(profile && profile.templateVersion !== template.version);
 
   return {
-    profileDefaults: profile?.payloadDefaults
-      ? parseAuthorizationTemplateProfilePayload({
-          payload: profile.payloadDefaults,
-          templateKey,
-        })
-      : null,
-    signerRoles: getAuthorizationTemplate(templateKey).signing.signerRoles,
+    profileDefaults:
+      profile?.payloadDefaults && !profileNeedsUpgrade
+        ? parseAuthorizationTemplateProfilePayload({
+            payload: profile.payloadDefaults,
+            templateKey,
+            templateVersion: template.version,
+          })
+        : null,
+    profileNeedsUpgrade,
+    signerRoles: template.signing.signerRoles,
+    templateVersion: 2 as const,
   };
 }
 
@@ -57,11 +70,21 @@ export async function action({ params, request }: Route.ActionArgs) {
   });
   requireAuthorizationManager(team.currentTeamRole);
   const formData = await request.formData();
-  const signerRoles = getAuthorizationTemplate(templateKey).signing.signerRoles;
+  const template = getAuthorizationTemplate(templateKey);
+
+  if (template.version !== 2) {
+    throw new Response('The current board authorization template is not supported by this form.', {
+      status: 500,
+    });
+  }
 
   try {
     const authorization = await createExecutiveAuthorization({
-      ...buildBoardAuthorizationInputFromFormData(formData, signerRoles),
+      ...buildBoardAuthorizationInputFromFormData(
+        formData,
+        template.signing.signerRoles,
+        template.version,
+      ),
       teamId: team.id,
       userId: user.id,
     });
@@ -112,10 +135,25 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
         </Alert>
       )}
 
+      {loaderData.profileNeedsUpgrade && (
+        <Alert className="mb-6">
+          <AlertTitle>Authorization defaults need review</AlertTitle>
+          <AlertDescription>
+            The saved defaults use an earlier certificate version. Review and save the current
+            fields in{' '}
+            <Link className="underline" to={`${authorizationsPath}/settings`}>
+              Authorization defaults
+            </Link>{' '}
+            before relying on them for new records.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Form method="post">
         <BoardAuthorizationForm
           defaultValues={loaderData.profileDefaults ?? undefined}
           signerRoles={loaderData.signerRoles}
+          templateVersion={loaderData.templateVersion}
         />
 
         <div className="mt-6 flex justify-end gap-3">

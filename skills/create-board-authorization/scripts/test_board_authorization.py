@@ -12,6 +12,8 @@ from pathlib import Path
 
 
 SCRIPT_PATH = Path(__file__).with_name("board_authorization.py")
+SKILL_PATH = SCRIPT_PATH.parents[1] / "SKILL.md"
+API_REFERENCE_PATH = SCRIPT_PATH.parents[1] / "references" / "api.md"
 TEST_TOKEN = "secret-test-token"
 EXPECTED_USER_AGENT = "DisclosureComics-BoardAuthorization-Agent/1.0 (+https://sign.disclosurecomics.com)"
 
@@ -147,10 +149,12 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             "payload": {
                 "actionDate": "2026-07-11",
                 "actionTitle": "Approve acquisition",
-                "investorCondition": "None",
+                "certificateDate": "2026-07-12",
                 "materialsReviewed": ["Purchase agreement"],
                 "matterDescription": "Acquire Example LLC.",
-                "resolutionTerms": "The acquisition is approved.",
+                "ratifyPriorActions": True,
+                "specificAction": "the acquisition of Example LLC",
+                "specificTerms": "on the terms in the Purchase Agreement",
             },
         }
         _ApiHandler.response_body = {
@@ -217,12 +221,27 @@ class BoardAuthorizationClientTest(unittest.TestCase):
 
     def test_profile_set_wraps_defaults(self):
         profile = {
+            "actionMethod": "UNANIMOUS_WRITTEN_CONSENT",
+            "approvalRequiredCount": 2,
+            "authorizedOfficerDirectorIndex": 1,
+            "authorizedOfficerName": "Two",
+            "authorizedOfficerTitle": "President",
             "companyLegalName": "Disclosure Comics Entertainment LLC",
             "directors": [
-                {"email": "one@example.com", "name": "One", "presence": "Consented", "vote": "For"},
-                {"email": "two@example.com", "name": "Two", "presence": "Consented", "vote": "For"},
-                {"email": "three@example.com", "name": "Three", "presence": "Consented", "vote": "For"},
+                {"email": "one@example.com", "name": "One", "presence": "CONSENTED", "vote": "FOR"},
+                {"email": "two@example.com", "name": "Two", "presence": "CONSENTED", "vote": "FOR"},
+                {"email": "three@example.com", "name": "Three", "presence": "CONSENTED", "vote": "FOR"},
             ],
+            "entityType": "limited liability company",
+            "equityHolderPlural": "members",
+            "governingBodyName": "Board of Managers",
+            "governingMemberPlural": "managers",
+            "governingMemberSingular": "manager",
+            "jurisdiction": "Colorado",
+            "quorumRequiredCount": 2,
+            "resolutionDisposition": "APPROVED_UNANIMOUSLY",
+            "secretaryDirectorIndex": 0,
+            "secretaryName": "One",
         }
 
         result = self.run_client("profile-set", input_payload=profile)
@@ -268,6 +287,40 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             result.stderr,
         )
         self.assertIn("(302)", result.stderr)
+
+    def test_skill_uses_complete_v2_decision_contract(self):
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        reference = API_REFERENCE_PATH.read_text(encoding="utf-8")
+
+        for field in [
+            "certificateDate",
+            "deliveryCondition",
+            "deliveryRecipient",
+            "ratifyPriorActions",
+            "specificAction",
+            "specificTerms",
+        ]:
+            self.assertIn(field, skill)
+            self.assertIn(field, reference)
+
+        self.assertNotIn("investorCondition", skill)
+        self.assertNotIn("resolutionTerms", skill)
+        self.assertIn("must not precede", skill)
+        self.assertIn("NOT_APPROVED", skill)
+        self.assertIn("must not precede", reference)
+        self.assertIn("NOT_APPROVED", reference)
+        self.assertIn("expected `9`", reference)
+
+    def test_skill_requires_reviewed_current_profile(self):
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        reference = API_REFERENCE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("needsUpgrade", skill)
+        self.assertIn("needsUpgrade", reference)
+        self.assertIn("authorizedOfficerDirectorIndex", reference)
+        self.assertIn("approvalRequiredCount", reference)
+        self.assertIn("quorumRequiredCount", reference)
+        self.assertIn("secretaryDirectorIndex", reference)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import {
   authorizationTemplateTypes,
   parseAuthorizationTemplatePayload,
 } from './schema';
+import { getAuthorizationTemplate } from './templates';
 import type { AuthorizationTemplateKey } from './types';
 import { validateAuthorizationTemplateSigners } from './validate-template-signers';
 
@@ -22,17 +23,21 @@ const parseActionDate = (value: string) => {
 export const prepareExecutiveAuthorizationRecord = (input: unknown) => {
   const parsed = ZPrepareExecutiveAuthorizationRecordSchema.parse(input);
   const templateKey = parsed.templateKey as AuthorizationTemplateKey;
+  const templateVersion = getAuthorizationTemplate(templateKey, parsed.templateVersion).version;
   const payload = parseAuthorizationTemplatePayload({
     payload: parsed.payload,
     templateKey,
+    templateVersion,
   });
   const rendered = renderAuthorizationTemplate({
     payload,
     templateKey,
+    templateVersion,
   });
   const signers = validateAuthorizationTemplateSigners({
     signers: rendered.signers,
     templateKey,
+    templateVersion,
   });
 
   return {

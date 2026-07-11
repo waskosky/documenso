@@ -1,3 +1,7 @@
+import { msg } from '@lingui/core/macro';
+import { ArrowLeftIcon, SaveIcon } from 'lucide-react';
+import { Form, Link, redirect, useActionData } from 'react-router';
+
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { getExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization-profile';
 import { parseAuthorizationTemplateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
@@ -7,9 +11,6 @@ import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
 import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
-import { msg } from '@lingui/core/macro';
-import { ArrowLeftIcon, SaveIcon } from 'lucide-react';
-import { Form, Link, redirect, useActionData } from 'react-router';
 
 import { AuthorizationProfileForm } from '~/components/executive-authorizations/authorization-profile-form';
 import { requireAuthorizationManager } from '~/utils/authorization-permissions';
@@ -37,18 +38,30 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     teamId: team.id,
     templateKey,
   });
-  const profileDefaults = profile?.payloadDefaults
-    ? parseAuthorizationTemplateProfilePayload({
-        payload: profile.payloadDefaults,
-        templateKey,
-      })
-    : null;
+  const template = getAuthorizationTemplate(templateKey);
+
+  if (template.version !== 2) {
+    throw new Response('The current board authorization template is not supported by this form.', {
+      status: 500,
+    });
+  }
+
+  const profileNeedsUpgrade = Boolean(profile && profile.templateVersion !== template.version);
+  const profileDefaults =
+    profile?.payloadDefaults && !profileNeedsUpgrade
+      ? parseAuthorizationTemplateProfilePayload({
+          payload: profile.payloadDefaults,
+          templateKey,
+          templateVersion: template.version,
+        })
+      : null;
 
   return {
     authorizationsPath: formatAuthorizationsPath(team.url),
     profileDefaults,
+    profileNeedsUpgrade,
     saved: new URL(request.url).searchParams.get('saved') === '1',
-    signerRoles: getAuthorizationTemplate(templateKey).signing.signerRoles,
+    signerRoles: template.signing.signerRoles,
   };
 }
 
@@ -85,11 +98,12 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 export default function AuthorizationSettingsPage({ loaderData }: Route.ComponentProps) {
   const actionData = useActionData<typeof action>();
-  const { authorizationsPath, profileDefaults, saved, signerRoles } = loaderData;
+  const { authorizationsPath, profileDefaults, profileNeedsUpgrade, saved, signerRoles } =
+    loaderData;
 
   return (
     <div className="mx-auto w-full max-w-screen-lg px-4 md:px-8">
-      <Button asChild variant="ghost" className="mb-6 -ml-3">
+      <Button asChild variant="ghost" className="-ml-3 mb-6">
         <Link to={authorizationsPath}>
           <ArrowLeftIcon className="mr-2 h-4 w-4" />
           Authorizations
@@ -97,13 +111,26 @@ export default function AuthorizationSettingsPage({ loaderData }: Route.Componen
       </Button>
 
       <div className="mb-8">
-        <h1 className="font-semibold text-3xl">Authorization defaults</h1>
+        <h1 className="text-3xl font-semibold">Authorization defaults</h1>
       </div>
 
       {saved && (
         <Alert className="mb-6">
           <AlertTitle>Defaults saved</AlertTitle>
-          <AlertDescription>New board authorizations will start with these values.</AlertDescription>
+          <AlertDescription>
+            New board authorizations will start with these values.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {profileNeedsUpgrade && (
+        <Alert className="mb-6">
+          <AlertTitle>Review required</AlertTitle>
+          <AlertDescription>
+            Existing defaults belong to an earlier certificate version. Complete every current field
+            and save to upgrade the profile; signer role assignments have intentionally not been
+            inferred.
+          </AlertDescription>
         </Alert>
       )}
 
@@ -115,7 +142,10 @@ export default function AuthorizationSettingsPage({ loaderData }: Route.Componen
       )}
 
       <Form method="post">
-        <AuthorizationProfileForm defaultValues={profileDefaults ?? undefined} signerRoles={signerRoles} />
+        <AuthorizationProfileForm
+          defaultValues={profileDefaults ?? undefined}
+          signerRoles={signerRoles}
+        />
 
         <div className="mt-6 flex justify-end gap-3">
           <Button asChild variant="outline">

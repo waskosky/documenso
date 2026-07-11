@@ -7,11 +7,13 @@ const normalizeRole = (value: string) => value.trim().toLowerCase();
 export const validateAuthorizationTemplateSigners = ({
   signers,
   templateKey,
+  templateVersion,
 }: {
   signers: AuthorizationSigner[];
   templateKey: AuthorizationTemplateKey;
+  templateVersion?: number;
 }) => {
-  const template = getAuthorizationTemplate(templateKey);
+  const template = getAuthorizationTemplate(templateKey, templateVersion);
   const configuredRoles = template.signing.signerRoles;
   const allowedRoles = new Map(
     configuredRoles.flatMap((role) => [
@@ -34,10 +36,14 @@ export const validateAuthorizationTemplateSigners = ({
     }
   });
 
-  const duplicateEmail = findDuplicateAuthorizationSignerEmail(signers.map((signer) => signer.email));
+  const duplicateEmail = findDuplicateAuthorizationSignerEmail(
+    signers.map((signer) => signer.email),
+  );
 
   if (duplicateEmail) {
-    throw new Error(`Each signer must have a unique email address. Duplicate: "${duplicateEmail}".`);
+    throw new Error(
+      `Each signer must have a unique email address. Duplicate: "${duplicateEmail}".`,
+    );
   }
 
   for (const role of configuredRoles) {

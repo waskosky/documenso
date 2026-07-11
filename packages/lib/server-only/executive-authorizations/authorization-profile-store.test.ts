@@ -5,19 +5,27 @@ import { upsertExecutiveAuthorizationProfile } from './upsert-executive-authoriz
 
 const templateKey = 'board_resolution_secretary_certificate' as const;
 const payloadDefaults = {
-  authorizedOfficerName: 'Morgan Officer',
+  actionMethod: 'UNANIMOUS_WRITTEN_CONSENT',
+  approvalRequiredCount: 2,
+  authorizedOfficerDirectorIndex: 1,
+  authorizedOfficerName: 'Director Two',
   authorizedOfficerTitle: 'President',
   companyLegalName: 'Example Company, Inc.',
-  consentMethod: 'unanimous written consent',
   directors: [
-    { email: 'one@example.test', name: 'Director One', presence: 'Consented', vote: 'For' },
-    { email: 'two@example.test', name: 'Director Two', presence: 'Consented', vote: 'For' },
-    { email: 'three@example.test', name: 'Director Three', presence: 'Consented', vote: 'For' },
+    { email: 'one@example.test', name: 'Director One', presence: 'CONSENTED', vote: 'FOR' },
+    { email: 'two@example.test', name: 'Director Two', presence: 'CONSENTED', vote: 'FOR' },
+    { email: 'three@example.test', name: 'Director Three', presence: 'CONSENTED', vote: 'FOR' },
   ],
   entityType: 'corporation',
+  equityHolderPlural: 'stockholders',
+  governingBodyName: 'Board of Directors',
+  governingMemberPlural: 'directors',
+  governingMemberSingular: 'director',
   jurisdiction: 'Colorado',
-  resolutionDisposition: 'approved unanimously',
-  secretaryName: 'Taylor Secretary',
+  quorumRequiredCount: 2,
+  resolutionDisposition: 'APPROVED_UNANIMOUSLY',
+  secretaryDirectorIndex: 0,
+  secretaryName: 'Director One',
 };
 
 void (async () => {
@@ -66,11 +74,11 @@ void (async () => {
       payloadDefaults,
       teamId: 3,
       templateKey,
-      templateVersion: 1,
+      templateVersion: 2,
     },
     update: {
       payloadDefaults,
-      templateVersion: 1,
+      templateVersion: 2,
     },
     where: {
       teamId_templateKey: {

@@ -1,14 +1,79 @@
 import assert from 'node:assert/strict';
 
-import { buildCreateAuthorizationResponse } from './create-authorization.types';
+import { buildCreateAuthorizationResponse, ZCreateAuthorizationRequestSchema } from './create-authorization.types';
+
+const decisionPayload = {
+  actionDate: '2026-07-11',
+  actionTitle: 'Approve example transaction',
+  certificateDate: '2026-07-12',
+  deliveryCondition: 'Section 4.2 closing condition',
+  deliveryRecipient: 'Example Investor',
+  materialsReviewed: ['Transaction summary'],
+  matterDescription: 'Approval of an example transaction.',
+  ratifyPriorActions: true,
+  specificAction: 'the example transaction',
+  specificTerms: 'on the terms presented to the Board',
+};
+
+const parsedRequest = ZCreateAuthorizationRequestSchema.parse({
+  externalId: 'board-2026-07-11-example-transaction',
+  payload: decisionPayload,
+});
+
+assert.deepEqual(parsedRequest.payload, decisionPayload);
+const { ratifyPriorActions: _ratifyPriorActions, ...payloadWithoutRatificationDecision } = decisionPayload;
+assert.throws(
+  () =>
+    ZCreateAuthorizationRequestSchema.parse({
+      externalId: 'board-2026-07-11-missing-ratification-decision',
+      payload: payloadWithoutRatificationDecision,
+    }),
+  /ratifyPriorActions/i,
+);
+assert.throws(
+  () =>
+    ZCreateAuthorizationRequestSchema.parse({
+      externalId: 'board-2026-07-11-stable-override',
+      payload: {
+        ...decisionPayload,
+        companyLegalName: 'One-Time Override, Inc.',
+      },
+    }),
+  /unrecognized key/i,
+);
+assert.throws(
+  () =>
+    ZCreateAuthorizationRequestSchema.parse({
+      externalId: 'board-2026-07-11-unpaired-delivery',
+      payload: {
+        ...decisionPayload,
+        deliveryCondition: undefined,
+      },
+    }),
+  /deliveryRecipient.*deliveryCondition/i,
+);
+assert.throws(
+  () =>
+    ZCreateAuthorizationRequestSchema.parse({
+      externalId: 'board-2026-07-11-legacy-fields',
+      payload: {
+        ...decisionPayload,
+        investorCondition: 'Legacy condition',
+        resolutionTerms: 'Legacy terms',
+      },
+    }),
+  /unrecognized key/i,
+);
 
 const response = buildCreateAuthorizationResponse({
   authorization: {
     envelope: {
       id: 'envelope_example',
       recipients: [
-        { fields: [{ type: 'SIGNATURE' }, { type: 'DATE' }] },
-        { fields: [{ type: 'SIGNATURE' }, { type: 'DATE' }] },
+        {
+          fields: [{ type: 'SIGNATURE' }, { type: 'DATE' }, { type: 'SIGNATURE' }, { type: 'DATE' }],
+        },
+        { fields: [{ type: 'SIGNATURE' }, { type: 'DATE' }, { type: 'SIGNATURE' }] },
         { fields: [{ type: 'SIGNATURE' }, { type: 'DATE' }] },
       ],
     },
@@ -32,7 +97,7 @@ assert.deepEqual(response, {
   authorizationUrl: 'https://sign.example.test/t/personal_example/authorizations/authorization_example',
   editorUrl: 'https://sign.example.test/t/personal_example/documents/envelope_example/edit?step=addFields',
   envelopeId: 'envelope_example',
-  fieldCount: 6,
+  fieldCount: 9,
   generationError: null,
   integrityError: null,
   integrityValid: true,

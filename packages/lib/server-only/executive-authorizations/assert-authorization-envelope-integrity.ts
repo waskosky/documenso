@@ -30,13 +30,44 @@ const integrityError = (message: string): never => {
 };
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
-const normalizeFields = <TField extends { type: string }>(fields: TField[]) =>
-  [...fields].sort((left, right) => left.type.localeCompare(right.type));
+const normalizeFields = <
+  TField extends {
+    height: unknown;
+    page: number;
+    positionX: unknown;
+    positionY: unknown;
+    type: string;
+    width: unknown;
+  },
+>(
+  fields: TField[],
+) =>
+  [...fields].sort((left, right) => {
+    const typeDifference = left.type.localeCompare(right.type);
+
+    if (typeDifference !== 0) {
+      return typeDifference;
+    }
+
+    for (const property of ['page', 'positionY', 'positionX', 'width', 'height'] as const) {
+      const difference = Number(left[property]) - Number(right[property]);
+
+      if (difference !== 0) {
+        return difference;
+      }
+    }
+
+    return 0;
+  });
 const numericValuesMatch = (left: unknown, right: unknown) => {
   const leftNumber = Number(left);
   const rightNumber = Number(right);
 
-  return Number.isFinite(leftNumber) && Number.isFinite(rightNumber) && Math.abs(leftNumber - rightNumber) < 0.0001;
+  return (
+    Number.isFinite(leftNumber) &&
+    Number.isFinite(rightNumber) &&
+    Math.abs(leftNumber - rightNumber) < 0.0001
+  );
 };
 
 export const assertAuthorizationEnvelopeIntegrity = async ({
@@ -63,6 +94,7 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
   const pdf = await generateAuthorizationPdf({
     renderedMarkdown: authorization.renderedMarkdown,
     signers: authorization.signers,
+    templateVersion: authorization.templateVersion,
     title: authorization.title,
   });
   const expected = buildAuthorizationEnvelopePlan({
@@ -94,11 +126,15 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
   }
 
   const actualRecipients = [...envelope.recipients].sort(
-    (left, right) => (left.signingOrder ?? Number.MAX_SAFE_INTEGER) - (right.signingOrder ?? Number.MAX_SAFE_INTEGER),
+    (left, right) =>
+      (left.signingOrder ?? Number.MAX_SAFE_INTEGER) -
+      (right.signingOrder ?? Number.MAX_SAFE_INTEGER),
   );
 
   if (actualRecipients.length !== expected.recipients.length) {
-    integrityError(`recipient count must be ${expected.recipients.length}, received ${actualRecipients.length}.`);
+    integrityError(
+      `recipient count must be ${expected.recipients.length}, received ${actualRecipients.length}.`,
+    );
   }
 
   expected.recipients.forEach((expectedRecipient, recipientIndex) => {
@@ -118,7 +154,9 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
     }
 
     if (actualRecipient.signingOrder !== expectedRecipient.signingOrder) {
-      integrityError(`recipient ${recipientNumber} signing order must be ${expectedRecipient.signingOrder}.`);
+      integrityError(
+        `recipient ${recipientNumber} signing order must be ${expectedRecipient.signingOrder}.`,
+      );
     }
 
     if (actualRecipient.role !== expectedRecipient.role) {
@@ -145,7 +183,9 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
       }
 
       if (actualField.envelopeItemId !== envelopeItem.id) {
-        integrityError(`recipient ${recipientNumber} field ${fieldNumber} is not attached to the generated document.`);
+        integrityError(
+          `recipient ${recipientNumber} field ${fieldNumber} is not attached to the generated document.`,
+        );
       }
 
       if (actualField.page !== expectedField.page) {

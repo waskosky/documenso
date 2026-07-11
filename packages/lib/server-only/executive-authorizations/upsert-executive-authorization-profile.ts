@@ -16,11 +16,12 @@ export const upsertExecutiveAuthorizationProfile = async ({
   teamId: number;
   templateKey: AuthorizationTemplateKey;
 }) => {
+  const template = getAuthorizationTemplate(templateKey);
   const parsedPayloadDefaults = parseAuthorizationTemplateProfilePayload({
     payload: payloadDefaults,
     templateKey,
+    templateVersion: template.version,
   });
-  const template = getAuthorizationTemplate(templateKey);
 
   return await prismaClient.executiveAuthorizationProfile.upsert({
     create: {

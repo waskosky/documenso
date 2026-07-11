@@ -66,6 +66,7 @@ const createAuthorizationSigningEnvelopeUnlocked = async ({
   const pdf = await generateAuthorizationPdf({
     renderedMarkdown: authorization.renderedMarkdown,
     signers,
+    templateVersion: authorization.templateVersion,
     title: authorization.title,
   });
   const plan = buildAuthorizationEnvelopePlan({
@@ -170,7 +171,9 @@ const createAuthorizationSigningEnvelopeUnlocked = async ({
   return envelope;
 };
 
-export const createAuthorizationSigningEnvelope = async (options: CreateAuthorizationSigningEnvelopeOptions) =>
+export const createAuthorizationSigningEnvelope = async (
+  options: CreateAuthorizationSigningEnvelopeOptions,
+) =>
   await withAuthorizationEnvelopeLock({
     authorizationId: options.id,
     operation: async () => await createAuthorizationSigningEnvelopeUnlocked(options),

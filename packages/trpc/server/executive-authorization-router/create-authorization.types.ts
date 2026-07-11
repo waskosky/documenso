@@ -1,10 +1,11 @@
-import {
-  ZAuthorizationTemplateKeySchema,
-  ZBoardResolutionCertificatePayloadSchema,
-} from '@documenso/lib/server-only/executive-authorizations/schema';
-import { normalizeAuthorizationSigners } from '@documenso/lib/server-only/executive-authorizations/stored-signers';
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
 import { z } from 'zod';
+
+import {
+  ZAuthorizationTemplateKeySchema,
+  ZBoardResolutionCertificatePayloadV2BaseSchema,
+} from '@documenso/lib/server-only/executive-authorizations/schema';
+import { normalizeAuthorizationSigners } from '@documenso/lib/server-only/executive-authorizations/stored-signers';
 
 import type { TrpcRouteMeta } from '../trpc';
 
@@ -13,27 +14,49 @@ export const createAuthorizationMeta: TrpcRouteMeta = {
     method: 'POST',
     path: '/executive-authorization/create',
     summary: 'Create an executive authorization draft',
-    description: 'Creates a logged authorization and optionally generates its ready-to-review signing envelope.',
+    description:
+      'Creates a logged authorization and optionally generates its ready-to-review signing envelope.',
     tags: ['Executive Authorization'],
   },
 };
 
-const ZBoardAuthorizationAutomationPayloadSchema = ZBoardResolutionCertificatePayloadSchema.partial().extend({
-  actionDate: ZBoardResolutionCertificatePayloadSchema.shape.actionDate,
-  actionTitle: ZBoardResolutionCertificatePayloadSchema.shape.actionTitle,
-  investorCondition: ZBoardResolutionCertificatePayloadSchema.shape.investorCondition,
-  materialsReviewed: ZBoardResolutionCertificatePayloadSchema.shape.materialsReviewed,
-  matterDescription: ZBoardResolutionCertificatePayloadSchema.shape.matterDescription,
-  resolutionTerms: ZBoardResolutionCertificatePayloadSchema.shape.resolutionTerms,
-});
+const ZBoardAuthorizationAutomationPayloadSchema =
+  ZBoardResolutionCertificatePayloadV2BaseSchema.pick({
+    actionDate: true,
+    actionTitle: true,
+    certificateDate: true,
+    deliveryCondition: true,
+    deliveryRecipient: true,
+    materialsReviewed: true,
+    matterDescription: true,
+    ratifyPriorActions: true,
+    specificAction: true,
+    specificTerms: true,
+  })
+    .extend({
+      materialsReviewed:
+        ZBoardResolutionCertificatePayloadV2BaseSchema.shape.materialsReviewed.removeDefault(),
+    })
+    .strict()
+    .superRefine((payload, context) => {
+      if (Boolean(payload.deliveryRecipient) !== Boolean(payload.deliveryCondition)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'deliveryRecipient and deliveryCondition must both be provided or both omitted.',
+          path: ['deliveryRecipient'],
+        });
+      }
+    });
 
-export const ZCreateAuthorizationRequestSchema = z.object({
-  externalId: z.string().trim().min(1).max(255),
-  generateDocument: z.boolean().default(true),
-  notes: z.string().trim().optional(),
-  payload: ZBoardAuthorizationAutomationPayloadSchema,
-  templateKey: ZAuthorizationTemplateKeySchema.default('board_resolution_secretary_certificate'),
-});
+export const ZCreateAuthorizationRequestSchema = z
+  .object({
+    externalId: z.string().trim().min(1).max(255),
+    generateDocument: z.boolean().default(true),
+    notes: z.string().trim().optional(),
+    payload: ZBoardAuthorizationAutomationPayloadSchema,
+    templateKey: ZAuthorizationTemplateKeySchema.default('board_resolution_secretary_certificate'),
+  })
+  .strict();
 
 export const ZCreateAuthorizationResponseSchema = z.object({
   authorizationId: z.string(),
@@ -73,14 +96,19 @@ export const buildCreateAuthorizationResponse = ({
   const baseUrl = webAppUrl.replace(/\/+$/, '');
   const signers = normalizeAuthorizationSigners(authorization.signers);
   const fieldCount =
-    authorization.envelope?.recipients.reduce((count, recipient) => count + recipient.fields.length, 0) ?? 0;
+    authorization.envelope?.recipients.reduce(
+      (count, recipient) => count + recipient.fields.length,
+      0,
+    ) ?? 0;
   const authorizationUrl = `${baseUrl}/t/${teamUrl}/authorizations/${authorization.id}`;
   const envelopeId = authorization.envelope?.id ?? null;
 
   return {
     authorizationId: authorization.id,
     authorizationUrl,
-    editorUrl: envelopeId ? `${baseUrl}/t/${teamUrl}/documents/${envelopeId}/edit?step=addFields` : null,
+    editorUrl: envelopeId
+      ? `${baseUrl}/t/${teamUrl}/documents/${envelopeId}/edit?step=addFields`
+      : null,
     envelopeId,
     fieldCount,
     generationError,

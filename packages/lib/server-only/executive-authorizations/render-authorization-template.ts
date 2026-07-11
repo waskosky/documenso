@@ -8,11 +8,13 @@ import type {
 export const renderAuthorizationTemplate = <TKey extends AuthorizationTemplateKey>({
   payload,
   templateKey,
+  templateVersion,
 }: {
   payload: AuthorizationTemplatePayloadMap[TKey];
   templateKey: TKey;
+  templateVersion?: number;
 }): AuthorizationRenderResult => {
-  const template = getAuthorizationTemplate(templateKey);
+  const template = getAuthorizationTemplate(templateKey, templateVersion);
 
-  return template.render(payload);
+  return template.render(payload as never);
 };
