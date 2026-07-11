@@ -5,6 +5,7 @@ import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-e
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { canRecipientFieldsBeModified } from '@documenso/lib/utils/recipients';
+import { assertAuthorizationEnvelopeMutationAllowed } from '@documenso/lib/server-only/executive-authorizations/authorization-envelope-lock';
 import { prisma } from '@documenso/prisma';
 
 import { ZGenericSuccessResponse } from '../../schema';
@@ -90,6 +91,8 @@ export const deleteEnvelopeFieldRoute = authenticatedProcedure
     }
 
     await prisma.$transaction(async (tx) => {
+      await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
       const deletedField = await tx.field.delete({
         where: {
           id: fieldToDelete.id,

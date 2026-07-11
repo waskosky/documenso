@@ -28,6 +28,7 @@ import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapFieldToLegacyField } from '../../utils/fields';
 import { canRecipientFieldsBeModified } from '../../utils/recipients';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export interface SetFieldsForDocumentOptions {
   userId: number;
@@ -137,6 +138,8 @@ export const setFieldsForDocument = async ({
   });
 
   const persistedFields = await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     return await Promise.all(
       linkedFields.map(async (field) => {
         const fieldSignerEmail = field._recipient.email.toLowerCase();
@@ -316,6 +319,8 @@ export const setFieldsForDocument = async ({
 
   if (removedFields.length > 0) {
     await prisma.$transaction(async (tx) => {
+      await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
       await tx.field.deleteMany({
         where: {
           id: {

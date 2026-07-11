@@ -12,7 +12,7 @@ import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { createEnvelope } from '../envelope/create-envelope';
-import { withAuthorizationEnvelopeGenerationLock } from './authorization-envelope-generation-lock';
+import { withAuthorizationEnvelopeLock } from './authorization-envelope-lock';
 import { buildAuthorizationEnvelopePlan } from './build-authorization-envelope-plan';
 import { generateAuthorizationPdf } from './generate-authorization-pdf';
 import { normalizeAuthorizationSigners } from './stored-signers';
@@ -171,7 +171,7 @@ const createAuthorizationSigningEnvelopeUnlocked = async ({
 };
 
 export const createAuthorizationSigningEnvelope = async (options: CreateAuthorizationSigningEnvelopeOptions) =>
-  await withAuthorizationEnvelopeGenerationLock({
+  await withAuthorizationEnvelopeLock({
     authorizationId: options.id,
     operation: async () => await createAuthorizationSigningEnvelopeUnlocked(options),
     teamId: options.teamId,

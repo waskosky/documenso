@@ -1,5 +1,6 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '@documenso/lib/server-only/executive-authorizations/authorization-envelope-lock';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import { prefixedId } from '@documenso/lib/universal/id';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
@@ -100,6 +101,8 @@ export const createEnvelopeItemsRoute = authenticatedProcedure
       envelope.envelopeItems[envelope.envelopeItems.length - 1]?.order ?? 1;
 
     const result = await prisma.$transaction(async (tx) => {
+      await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
       const createdItems = await tx.envelopeItem.createManyAndReturn({
         data: envelopeItems.map((item) => ({
           id: prefixedId('envelope_item'),

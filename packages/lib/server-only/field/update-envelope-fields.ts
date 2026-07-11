@@ -14,6 +14,7 @@ import { type EnvelopeIdOptions } from '../../utils/envelope';
 import { mapFieldToLegacyField } from '../../utils/fields';
 import { canRecipientFieldsBeModified } from '../../utils/recipients';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export interface UpdateEnvelopeFieldsOptions {
   userId: number;
@@ -129,6 +130,8 @@ export const updateEnvelopeFields = async ({
   });
 
   const updatedFields = await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     return await Promise.all(
       fieldsToUpdate.map(async ({ originalField, updateData, recipientEmail }) => {
         const updatedField = await tx.field.update({

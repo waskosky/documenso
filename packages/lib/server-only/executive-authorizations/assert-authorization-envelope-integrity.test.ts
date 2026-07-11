@@ -40,6 +40,7 @@ void (async () => {
   const envelope = {
     envelopeItems: [envelopeItem],
     externalId: plan.externalId,
+    formValues: null,
     id: 'envelope_example',
     recipients: plan.recipients.map((recipient, recipientIndex) => ({
       email: recipient.email,
@@ -70,6 +71,10 @@ void (async () => {
     {
       expected: /exactly one document/i,
       envelope: { ...envelope, envelopeItems: [] },
+    },
+    {
+      expected: /form values/i,
+      envelope: { ...envelope, formValues: { untrusted: 'value' } },
     },
     {
       expected: /generated document/i,

@@ -1,5 +1,6 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '@documenso/lib/server-only/executive-authorizations/authorization-envelope-lock';
 import { DOCUMENT_AUDIT_LOG_TYPE } from '@documenso/lib/types/document-audit-logs';
 import { createDocumentAuditLogData } from '@documenso/lib/utils/document-audit-logs';
 import { canEnvelopeItemsBeModified } from '@documenso/lib/utils/envelope';
@@ -58,6 +59,8 @@ export const deleteEnvelopeItemRoute = authenticatedProcedure
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
       const deletedEnvelopeItem = await tx.envelopeItem.delete({
         where: {
           id: envelopeItemId,

@@ -14,6 +14,7 @@ import { prisma } from '@documenso/prisma';
 
 import type { SupportedLanguageCodes } from '../../constants/i18n';
 import { AppError, AppErrorCode } from '../../errors/app-error';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 import type { TDocumentEmailSettings } from '../../types/document-email';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
@@ -100,6 +101,8 @@ export const updateDocumentMeta = async ({
   }
 
   return await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     const upsertedDocumentMeta = await tx.documentMeta.update({
       where: {
         id: envelope.documentMetaId,

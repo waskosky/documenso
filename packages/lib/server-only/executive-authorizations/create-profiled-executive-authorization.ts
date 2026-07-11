@@ -1,4 +1,5 @@
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import { ExecutiveAuthorizationStatus } from '@prisma/client';
 
 import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
 import { createAuthorizationSigningEnvelope } from './create-authorization-signing-envelope';
@@ -117,7 +118,11 @@ export const createProfiledExecutiveAuthorization = async (
     throw new Error('Created authorization could not be loaded.');
   }
 
-  if (currentAuthorization.envelope) {
+  const requiresPreSendIntegrityCheck =
+    currentAuthorization.status === ExecutiveAuthorizationStatus.DRAFT ||
+    currentAuthorization.status === ExecutiveAuthorizationStatus.READY;
+
+  if (currentAuthorization.envelope && requiresPreSendIntegrityCheck) {
     try {
       await dependencies.assertEnvelopeIntegrity({
         authorization: {

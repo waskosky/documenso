@@ -1,5 +1,6 @@
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { getEnvelopeWhereInput } from '@documenso/lib/server-only/envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '@documenso/lib/server-only/executive-authorizations/authorization-envelope-lock';
 import { canEnvelopeItemsBeModified } from '@documenso/lib/utils/envelope';
 import { prisma } from '@documenso/prisma';
 
@@ -71,26 +72,30 @@ export const updateEnvelopeItemsRoute = authenticatedProcedure
       });
     }
 
-    const updatedEnvelopeItems = await Promise.all(
-      data.map(async ({ envelopeItemId, order, title }) =>
-        prisma.envelopeItem.update({
-          where: {
-            envelopeId: envelope.id,
-            id: envelopeItemId,
-          },
-          data: {
-            order,
-            title,
-          },
-          select: {
-            id: true,
-            order: true,
-            title: true,
-            envelopeId: true,
-          },
-        }),
-      ),
-    );
+    const updatedEnvelopeItems = await prisma.$transaction(async (tx) => {
+      await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
+      return await Promise.all(
+        data.map(async ({ envelopeItemId, order, title }) =>
+          tx.envelopeItem.update({
+            where: {
+              envelopeId: envelope.id,
+              id: envelopeItemId,
+            },
+            data: {
+              order,
+              title,
+            },
+            select: {
+              id: true,
+              order: true,
+              title: true,
+              envelopeId: true,
+            },
+          }),
+        ),
+      );
+    });
 
     // Todo: Envelope [AUDIT_LOGS]
 

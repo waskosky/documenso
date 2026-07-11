@@ -6,6 +6,7 @@ import { prisma } from '@documenso/prisma';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
+import { withAuthorizationEnvelopeLock } from './authorization-envelope-lock';
 import { createAuthorizationSigningEnvelope } from './create-authorization-signing-envelope';
 import { refreshExecutiveAuthorizationStatus } from './refresh-executive-authorization-status';
 import { normalizeAuthorizationSigners } from './stored-signers';
@@ -60,98 +61,115 @@ export const sendExecutiveAuthorization = async ({
         userId,
       });
 
-  const integrityAuthorization = await prisma.executiveAuthorization.findFirst({
-    select: {
-      envelope: {
+  return await withAuthorizationEnvelopeLock({
+    authorizationId: id,
+    operation: async () => {
+      const integrityAuthorization = await prisma.executiveAuthorization.findFirst({
         select: {
-          externalId: true,
-          envelopeItems: {
+          envelope: {
             select: {
-              documentDataId: true,
-              id: true,
-            },
-          },
-          id: true,
-          recipients: {
-            orderBy: {
-              signingOrder: 'asc',
-            },
-            select: {
-              email: true,
-              fields: {
+              externalId: true,
+              formValues: true,
+              envelopeItems: {
                 select: {
-                  envelopeItemId: true,
-                  height: true,
-                  page: true,
-                  positionX: true,
-                  positionY: true,
-                  type: true,
-                  width: true,
+                  documentDataId: true,
+                  id: true,
                 },
               },
-              name: true,
-              role: true,
-              signingOrder: true,
+              id: true,
+              recipients: {
+                orderBy: {
+                  signingOrder: 'asc',
+                },
+                select: {
+                  email: true,
+                  fields: {
+                    select: {
+                      envelopeItemId: true,
+                      height: true,
+                      page: true,
+                      positionX: true,
+                      positionY: true,
+                      type: true,
+                      width: true,
+                    },
+                  },
+                  name: true,
+                  role: true,
+                  signingOrder: true,
+                },
+              },
             },
           },
+          generatedDocumentDataId: true,
+          id: true,
+          renderedMarkdown: true,
+          signers: true,
+          status: true,
+          templateKey: true,
+          templateVersion: true,
+          title: true,
         },
-      },
-      id: true,
-      generatedDocumentDataId: true,
-      renderedMarkdown: true,
-      signers: true,
-      templateKey: true,
-      templateVersion: true,
-      title: true,
-    },
-    where: {
-      envelopeId: envelope.id,
-      id,
-      teamId,
-    },
-  });
+        where: {
+          envelopeId: envelope.id,
+          id,
+          teamId,
+        },
+      });
 
-  if (!integrityAuthorization?.envelope) {
-    throw new AppError(AppErrorCode.NOT_FOUND, {
-      message: 'Authorization signing envelope not found.',
-    });
-  }
+      if (!integrityAuthorization?.envelope) {
+        throw new AppError(AppErrorCode.NOT_FOUND, {
+          message: 'Authorization signing envelope not found.',
+        });
+      }
 
-  await assertAuthorizationEnvelopeIntegrity({
-    authorization: {
-      id: integrityAuthorization.id,
-      generatedDocumentDataId: integrityAuthorization.generatedDocumentDataId,
-      renderedMarkdown: integrityAuthorization.renderedMarkdown,
-      signers: normalizeAuthorizationSigners(integrityAuthorization.signers),
-      templateKey: integrityAuthorization.templateKey as AuthorizationTemplateKey,
-      templateVersion: integrityAuthorization.templateVersion,
-      title: integrityAuthorization.title,
-    },
-    envelope: integrityAuthorization.envelope,
-  });
+      if (
+        integrityAuthorization.status !== ExecutiveAuthorizationStatus.DRAFT &&
+        integrityAuthorization.status !== ExecutiveAuthorizationStatus.READY
+      ) {
+        throw new AppError(AppErrorCode.INVALID_REQUEST, {
+          message: 'Only draft or ready authorizations can be sent.',
+        });
+      }
 
-  await sendDocument({
-    id: {
-      id: integrityAuthorization.envelope.id,
-      type: 'envelopeId',
-    },
-    requestMetadata,
-    teamId,
-    userId,
-  });
+      await assertAuthorizationEnvelopeIntegrity({
+        authorization: {
+          generatedDocumentDataId: integrityAuthorization.generatedDocumentDataId,
+          id: integrityAuthorization.id,
+          renderedMarkdown: integrityAuthorization.renderedMarkdown,
+          signers: normalizeAuthorizationSigners(integrityAuthorization.signers),
+          templateKey: integrityAuthorization.templateKey as AuthorizationTemplateKey,
+          templateVersion: integrityAuthorization.templateVersion,
+          title: integrityAuthorization.title,
+        },
+        envelope: integrityAuthorization.envelope,
+      });
 
-  await prisma.executiveAuthorization.update({
-    data: {
-      sentAt: new Date(),
-      status: ExecutiveAuthorizationStatus.SENT,
-    },
-    where: {
-      id,
-    },
-  });
+      await sendDocument({
+        id: {
+          id: integrityAuthorization.envelope.id,
+          type: 'envelopeId',
+        },
+        requestMetadata,
+        teamId,
+        userId,
+      });
 
-  return await refreshExecutiveAuthorizationStatus({
-    id,
+      await prisma.executiveAuthorization.update({
+        data: {
+          sentAt: new Date(),
+          status: ExecutiveAuthorizationStatus.SENT,
+        },
+        where: {
+          id,
+        },
+      });
+
+      return await refreshExecutiveAuthorizationStatus({
+        id,
+        teamId,
+      });
+    },
     teamId,
   });
 };

@@ -19,6 +19,7 @@ import { renderEmailWithI18N } from '../../utils/render-email-with-i18n';
 import { buildTeamWhereQuery } from '../../utils/teams';
 import { getEmailContext } from '../email/get-email-context';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export interface DeleteEnvelopeRecipientOptions {
   userId: number;
@@ -110,6 +111,8 @@ export const deleteEnvelopeRecipient = async ({
   });
 
   const deletedRecipient = await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     if (envelope.type === EnvelopeType.DOCUMENT) {
       await tx.documentAuditLog.create({
         data: createDocumentAuditLogData({

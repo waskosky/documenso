@@ -8,6 +8,7 @@ import { prisma } from '@documenso/prisma';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { canRecipientFieldsBeModified } from '../../utils/recipients';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export interface DeleteDocumentFieldOptions {
   userId: number;
@@ -87,6 +88,8 @@ export const deleteDocumentField = async ({
   }
 
   return await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     const deletedField = await tx.field.delete({
       where: {
         id: fieldId,

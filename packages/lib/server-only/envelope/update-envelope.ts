@@ -16,6 +16,7 @@ import { createDocumentAuthOptions, extractDocumentAuthMethods } from '../../uti
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { buildTeamWhereQuery, canAccessTeamDocument } from '../../utils/teams';
 import { getEnvelopeWhereInput } from './get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export type UpdateEnvelopeOptions = {
   userId: number;
@@ -310,6 +311,8 @@ export const updateEnvelope = async ({
   // }
 
   return await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     const updatedEnvelope = await tx.envelope.update({
       where: {
         id: envelope.id,

@@ -32,6 +32,7 @@ import { canRecipientBeModified, isRecipientEmailValidForSending } from '../../u
 import { renderEmailWithI18N } from '../../utils/render-email-with-i18n';
 import { getEmailContext } from '../email/get-email-context';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export interface SetDocumentRecipientsOptions {
   userId: number;
@@ -150,6 +151,8 @@ export const setDocumentRecipients = async ({
   });
 
   const persistedRecipients = await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     return await Promise.all(
       linkedRecipients.map(async (recipient) => {
         let authOptions = ZRecipientAuthOptionsSchema.parse(recipient._persisted?.authOptions);
@@ -265,6 +268,8 @@ export const setDocumentRecipients = async ({
 
   if (removedRecipients.length > 0) {
     await prisma.$transaction(async (tx) => {
+      await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
       await tx.recipient.deleteMany({
         where: {
           id: {

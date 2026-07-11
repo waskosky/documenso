@@ -14,6 +14,7 @@ import { AppError, AppErrorCode } from '../../errors/app-error';
 import type { EnvelopeIdOptions } from '../../utils/envelope';
 import { mapRecipientToLegacyRecipient } from '../../utils/recipients';
 import { getEnvelopeWhereInput } from '../envelope/get-envelope-by-id';
+import { assertAuthorizationEnvelopeMutationAllowed } from '../executive-authorizations/authorization-envelope-lock';
 
 export interface CreateEnvelopeRecipientsOptions {
   userId: number;
@@ -89,6 +90,8 @@ export const createEnvelopeRecipients = async ({
   }));
 
   const createdRecipients = await prisma.$transaction(async (tx) => {
+    await assertAuthorizationEnvelopeMutationAllowed({ envelopeId: envelope.id, transaction: tx });
+
     return await Promise.all(
       normalizedRecipients.map(async (recipient) => {
         const authOptions = createRecipientAuthOptions({

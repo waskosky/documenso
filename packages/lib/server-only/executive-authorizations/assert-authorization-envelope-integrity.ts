@@ -55,6 +55,7 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
   envelope: {
     envelopeItems: AuthorizationEnvelopeIntegrityItem[];
     externalId: string | null;
+    formValues: unknown | null;
     id: string;
     recipients: AuthorizationEnvelopeIntegrityRecipient[];
   };
@@ -76,6 +77,10 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
 
   if (envelope.externalId !== expected.externalId) {
     integrityError(`external ID must be "${expected.externalId}".`);
+  }
+
+  if (envelope.formValues !== null) {
+    integrityError('form values must remain unset for authorization envelopes.');
   }
 
   if (envelope.envelopeItems.length !== 1) {

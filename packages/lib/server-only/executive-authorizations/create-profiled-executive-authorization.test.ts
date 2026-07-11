@@ -120,6 +120,20 @@ void (async () => {
 
   assert.equal(failedIntegrity.integrityError, 'Generated PDF identity does not match.');
 
+  let completedIntegrityCalls = 0;
+  const completedAuthorization = await createProfiledExecutiveAuthorization(input, {
+    ...dependencies,
+    assertEnvelopeIntegrity: () => {
+      completedIntegrityCalls += 1;
+
+      return Promise.reject(new Error('Completed document data has normal signed-PDF lineage.'));
+    },
+    getAuthorization: () => Promise.resolve({ ...readyAuthorization, status: 'COMPLETED' } as never),
+  });
+
+  assert.equal(completedIntegrityCalls, 0);
+  assert.equal(completedAuthorization.integrityError, null);
+
   await assert.rejects(
     () =>
       createProfiledExecutiveAuthorization(input, {
