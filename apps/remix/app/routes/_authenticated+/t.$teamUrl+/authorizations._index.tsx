@@ -1,11 +1,11 @@
 import { Trans } from '@lingui/react/macro';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { Link } from 'react-router';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { listExecutiveAuthorizations } from '@documenso/lib/server-only/executive-authorizations/list-executive-authorizations';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
-import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
+import { canExecuteTeamAction, formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { Badge } from '@documenso/ui/primitives/badge';
 import { Button } from '@documenso/ui/primitives/button';
 import { Card } from '@documenso/ui/primitives/card';
@@ -42,11 +42,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       type: authorization.type,
     })),
     authorizationsPath: formatAuthorizationsPath(team.url),
+    canManage: canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole),
   };
 }
 
 export default function AuthorizationsPage({ loaderData }: Route.ComponentProps) {
-  const { authorizations, authorizationsPath } = loaderData;
+  const { authorizations, authorizationsPath, canManage } = loaderData;
 
   return (
     <div className="mx-auto w-full max-w-screen-xl px-4 md:px-8">
@@ -63,12 +64,22 @@ export default function AuthorizationsPage({ loaderData }: Route.ComponentProps)
           </p>
         </div>
 
-        <Button asChild>
-          <Link to={`${authorizationsPath}/new`}>
-            <PlusIcon className="mr-2 h-4 w-4" />
-            <Trans>New authorization</Trans>
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {canManage && (
+            <Button asChild variant="outline">
+              <Link to={`${authorizationsPath}/settings`}>
+                <SlidersHorizontalIcon className="mr-2 h-4 w-4" />
+                <Trans>Defaults</Trans>
+              </Link>
+            </Button>
+          )}
+          <Button asChild>
+            <Link to={`${authorizationsPath}/new`}>
+              <PlusIcon className="mr-2 h-4 w-4" />
+              <Trans>New authorization</Trans>
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mt-8">

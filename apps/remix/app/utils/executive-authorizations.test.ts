@@ -5,6 +5,7 @@ import type { AuthorizationTemplateSignerRole } from '@documenso/lib/server-only
 import {
   buildAuthorizationSignerSlots,
   buildBoardAuthorizationInputFromFormData,
+  buildBoardAuthorizationProfileInputFromFormData,
   getAuthorizationSignerFieldName,
 } from './executive-authorizations';
 
@@ -57,5 +58,19 @@ assert.deepEqual(parsed.payload.directors, [
   { email: '2@example.test', name: 'Director 2', presence: 'Consented', vote: 'For' },
   { email: '3@example.test', name: 'Director 3', presence: 'Consented', vote: 'For' },
 ]);
+
+const profilePayload = buildBoardAuthorizationProfileInputFromFormData(formData, signerRoles);
+
+assert.deepEqual(profilePayload, {
+  authorizedOfficerName: 'Morgan Officer',
+  authorizedOfficerTitle: 'President',
+  companyLegalName: 'Example Company, Inc.',
+  consentMethod: 'unanimous written consent',
+  directors: parsed.payload.directors,
+  entityType: 'corporation',
+  jurisdiction: 'Colorado',
+  resolutionDisposition: 'approved unanimously',
+  secretaryName: 'Taylor Secretary',
+});
 
 console.log('executive authorization form utility tests passed');
