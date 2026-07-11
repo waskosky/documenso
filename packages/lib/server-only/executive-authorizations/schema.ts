@@ -54,6 +54,7 @@ export const ZPrepareExecutiveAuthorizationRecordSchema = z.object({
 
 export const ZCreateExecutiveAuthorizationSchema =
   ZPrepareExecutiveAuthorizationRecordSchema.extend({
+    externalId: z.string().trim().min(1).max(255).optional(),
     teamId: z.number().int().positive(),
     userId: z.number().int().positive(),
   });

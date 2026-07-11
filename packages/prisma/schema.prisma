@@ -244,6 +244,7 @@ enum ExecutiveAuthorizationType {
 model ExecutiveAuthorization {
   id String @id @default(cuid())
 
+  externalId       String?
   title            String
   companyLegalName String
   type             ExecutiveAuthorizationType
@@ -272,12 +273,30 @@ model ExecutiveAuthorization {
   envelopeId String?   @unique
   envelope   Envelope? @relation(fields: [envelopeId], references: [id], onDelete: SetNull)
 
+  @@unique([teamId, externalId])
   @@index([teamId])
   @@index([createdByUserId])
   @@index([status])
   @@index([type])
   @@index([actionDate])
   @@index([createdAt])
+}
+
+model ExecutiveAuthorizationProfile {
+  id String @id @default(cuid())
+
+  templateKey     String
+  templateVersion Int
+  payloadDefaults Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, templateKey])
+  @@index([teamId])
 }
 
 enum SubscriptionStatus {
@@ -946,12 +965,13 @@ model Team {
 
   profile TeamProfile?
 
-  envelopes               Envelope[]
-  folders                 Folder[]
-  apiTokens               ApiToken[]
-  webhooks                Webhook[]
-  teamGroups              TeamGroup[]
-  executiveAuthorizations ExecutiveAuthorization[]
+  envelopes                      Envelope[]
+  folders                        Folder[]
+  apiTokens                      ApiToken[]
+  webhooks                       Webhook[]
+  teamGroups                     TeamGroup[]
+  executiveAuthorizations        ExecutiveAuthorization[]
+  executiveAuthorizationProfiles ExecutiveAuthorizationProfile[]
 
   organisationId String
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
