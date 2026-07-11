@@ -13,6 +13,7 @@ from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).with_name("board_authorization.py")
 TEST_TOKEN = "secret-test-token"
+EXPECTED_USER_AGENT = "DisclosureComics-BoardAuthorization-Agent/1.0 (+https://sign.disclosurecomics.com)"
 
 
 class _ApiHandler(BaseHTTPRequestHandler):
@@ -20,6 +21,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
     response_status = 200
     response_body = {"ok": True}
     response_headers = {}
+    user_agents = []
 
     def do_GET(self):
         self._handle_request()
@@ -43,6 +45,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
                 "path": self.path,
             }
         )
+        self.__class__.user_agents.append(self.headers.get("User-Agent"))
 
         encoded_response = json.dumps(self.__class__.response_body).encode("utf-8")
         self.send_response(self.__class__.response_status)
@@ -113,14 +116,20 @@ class BoardAuthorizationClientTest(unittest.TestCase):
         _ApiHandler.response_status = 200
         _ApiHandler.response_body = {"ok": True}
         _ApiHandler.response_headers = {}
+        _ApiHandler.user_agents = []
         _RedirectTargetHandler.requests = []
 
-    def run_client(self, *arguments, input_payload=None):
+    def run_client(self, *arguments, input_payload=None, environment=None):
         env = {
             **os.environ,
             "DISCLOSURE_SIGN_API_TOKEN": TEST_TOKEN,
             "DISCLOSURE_SIGN_BASE_URL": self.base_url,
         }
+        for name, value in (environment or {}).items():
+            if value is None:
+                env.pop(name, None)
+            else:
+                env[name] = value
         command = [sys.executable, str(SCRIPT_PATH), *arguments]
 
         if input_payload is not None:
@@ -180,6 +189,31 @@ class BoardAuthorizationClientTest(unittest.TestCase):
                 }
             ],
         )
+
+    def test_profile_get_uses_identifiable_user_agent(self):
+        result = self.run_client("profile-get")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(_ApiHandler.user_agents, [EXPECTED_USER_AGENT])
+
+    def test_profile_get_reads_token_from_default_private_file(self):
+        with tempfile.TemporaryDirectory() as home_directory:
+            token_path = Path(home_directory) / ".config" / "disclosure-sign" / "api-token"
+            token_path.parent.mkdir(parents=True)
+            token_path.write_text(f"{TEST_TOKEN}\n", encoding="utf-8")
+            token_path.chmod(0o600)
+
+            result = self.run_client(
+                "profile-get",
+                environment={
+                    "DISCLOSURE_SIGN_API_TOKEN": None,
+                    "DISCLOSURE_SIGN_API_TOKEN_FILE": None,
+                    "HOME": home_directory,
+                },
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(_ApiHandler.requests[0]["authorization"], f"Bearer {TEST_TOKEN}")
 
     def test_profile_set_wraps_defaults(self):
         profile = {
