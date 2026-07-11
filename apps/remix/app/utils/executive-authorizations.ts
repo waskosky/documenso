@@ -1,4 +1,34 @@
-const signerSlots = [0, 1, 2];
+import type { AuthorizationTemplateSignerRole } from '@documenso/lib/server-only/executive-authorizations/types';
+
+export type AuthorizationSignerSlot = {
+  index: number;
+  required: boolean;
+  roleIndex: number;
+  roleKey: string;
+  roleLabel: string;
+};
+
+export type AuthorizationSignerField = 'email' | 'name' | 'presence' | 'vote';
+
+export const buildAuthorizationSignerSlots = (signerRoles: readonly AuthorizationTemplateSignerRole[]) => {
+  let index = 0;
+
+  return signerRoles.flatMap((role) =>
+    Array.from(
+      { length: role.minCount },
+      (_, roleIndex): AuthorizationSignerSlot => ({
+        index: index++,
+        required: role.required,
+        roleIndex,
+        roleKey: role.key,
+        roleLabel: role.label,
+      }),
+    ),
+  );
+};
+
+export const getAuthorizationSignerFieldName = (slot: AuthorizationSignerSlot, field: AuthorizationSignerField) =>
+  `signer-${slot.roleKey}-${slot.roleIndex}-${field}`;
 
 const getString = (formData: FormData, key: string) => String(formData.get(key) ?? '').trim();
 
@@ -8,13 +38,17 @@ const getList = (formData: FormData, key: string) =>
     .map((value) => value.trim())
     .filter(Boolean);
 
-export const buildBoardAuthorizationInputFromFormData = (formData: FormData) => {
-  const directors = signerSlots
-    .map((index) => ({
-      email: getString(formData, `directorEmail-${index}`),
-      name: getString(formData, `directorName-${index}`),
-      presence: getString(formData, `directorPresence-${index}`) || 'Consented',
-      vote: getString(formData, `directorVote-${index}`) || 'For',
+export const buildBoardAuthorizationInputFromFormData = (
+  formData: FormData,
+  signerRoles: readonly AuthorizationTemplateSignerRole[],
+) => {
+  const directors = buildAuthorizationSignerSlots(signerRoles)
+    .filter((slot) => slot.roleKey === 'director')
+    .map((slot) => ({
+      email: getString(formData, getAuthorizationSignerFieldName(slot, 'email')),
+      name: getString(formData, getAuthorizationSignerFieldName(slot, 'name')),
+      presence: getString(formData, getAuthorizationSignerFieldName(slot, 'presence')) || 'Consented',
+      vote: getString(formData, getAuthorizationSignerFieldName(slot, 'vote')) || 'For',
     }))
     .filter((director) => director.name || director.email);
 

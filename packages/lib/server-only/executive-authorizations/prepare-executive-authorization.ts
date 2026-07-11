@@ -7,6 +7,7 @@ import {
   ZPrepareExecutiveAuthorizationRecordSchema,
 } from './schema';
 import type { AuthorizationTemplateKey } from './types';
+import { validateAuthorizationTemplateSigners } from './validate-template-signers';
 
 const parseActionDate = (value: string) => {
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -29,6 +30,10 @@ export const prepareExecutiveAuthorizationRecord = (input: unknown) => {
     payload,
     templateKey,
   });
+  const signers = validateAuthorizationTemplateSigners({
+    signers: rendered.signers,
+    templateKey,
+  });
 
   return {
     actionDate: parseActionDate(payload.actionDate),
@@ -36,7 +41,7 @@ export const prepareExecutiveAuthorizationRecord = (input: unknown) => {
     notes: parsed.notes,
     payload,
     renderedMarkdown: rendered.markdown,
-    signers: rendered.signers,
+    signers,
     status: ExecutiveAuthorizationStatus.DRAFT,
     templateKey,
     templateVersion: rendered.templateVersion,

@@ -1,5 +1,6 @@
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { createExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/create-executive-authorization';
+import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
 import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
@@ -19,6 +20,12 @@ export function meta() {
   return appMetaTags(msg`New Authorization`.id as never);
 }
 
+export function loader() {
+  return {
+    signerRoles: getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles,
+  };
+}
+
 export async function action({ params, request }: Route.ActionArgs) {
   const { user } = await getSession(request);
   const team = await getTeamByUrl({
@@ -26,10 +33,11 @@ export async function action({ params, request }: Route.ActionArgs) {
     userId: user.id,
   });
   const formData = await request.formData();
+  const signerRoles = getAuthorizationTemplate('board_resolution_secretary_certificate').signing.signerRoles;
 
   try {
     const authorization = await createExecutiveAuthorization({
-      ...buildBoardAuthorizationInputFromFormData(formData),
+      ...buildBoardAuthorizationInputFromFormData(formData, signerRoles),
       teamId: team.id,
       userId: user.id,
     });
@@ -46,7 +54,7 @@ export async function action({ params, request }: Route.ActionArgs) {
   }
 }
 
-export default function NewAuthorizationPage({ params }: Route.ComponentProps) {
+export default function NewAuthorizationPage({ loaderData, params }: Route.ComponentProps) {
   const actionData = useActionData<typeof action>();
   const authorizationsPath = formatAuthorizationsPath(params.teamUrl);
 
@@ -81,7 +89,7 @@ export default function NewAuthorizationPage({ params }: Route.ComponentProps) {
       )}
 
       <Form method="post">
-        <BoardAuthorizationForm />
+        <BoardAuthorizationForm signerRoles={loaderData.signerRoles} />
 
         <div className="mt-6 flex justify-end gap-3">
           <Button asChild variant="outline">

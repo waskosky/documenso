@@ -1,18 +1,28 @@
-import type { BoardResolutionCertificatePayload } from '@documenso/lib/server-only/executive-authorizations/types';
+import type {
+  AuthorizationTemplateSignerRole,
+  BoardResolutionCertificatePayload,
+} from '@documenso/lib/server-only/executive-authorizations/types';
 import { Card } from '@documenso/ui/primitives/card';
 import { Input } from '@documenso/ui/primitives/input';
 import { Label } from '@documenso/ui/primitives/label';
 import { Textarea } from '@documenso/ui/primitives/textarea';
 import { Trans } from '@lingui/react/macro';
 
-const signerSlots = [0, 1, 2];
+import { buildAuthorizationSignerSlots, getAuthorizationSignerFieldName } from '~/utils/executive-authorizations';
 
 type BoardAuthorizationFormDefaults = Partial<BoardResolutionCertificatePayload> & {
   notes?: string | null;
 };
 
-export const BoardAuthorizationForm = ({ defaultValues = {} }: { defaultValues?: BoardAuthorizationFormDefaults }) => {
+export const BoardAuthorizationForm = ({
+  defaultValues = {},
+  signerRoles,
+}: {
+  defaultValues?: BoardAuthorizationFormDefaults;
+  signerRoles: readonly AuthorizationTemplateSignerRole[];
+}) => {
   const directors = defaultValues.directors ?? [];
+  const signerSlots = buildAuthorizationSignerSlots(signerRoles);
 
   return (
     <>
@@ -103,23 +113,39 @@ export const BoardAuthorizationForm = ({ defaultValues = {} }: { defaultValues?:
         </p>
 
         <div className="mt-5 grid gap-4">
-          {signerSlots.map((index) => {
-            const director = directors[index];
+          {signerSlots.map((slot) => {
+            const director = slot.roleKey === 'director' ? directors[slot.roleIndex] : undefined;
 
             return (
-              <div key={index} className="grid gap-3 rounded-md border p-4 md:grid-cols-4">
+              <div
+                key={`${slot.roleKey}-${slot.roleIndex}`}
+                className="grid gap-3 rounded-md border p-4 md:grid-cols-4"
+              >
                 <Field
-                  label={`Director ${index + 1} name`}
-                  name={`directorName-${index}`}
+                  label={`${slot.roleLabel} ${slot.roleIndex + 1} name`}
+                  name={getAuthorizationSignerFieldName(slot, 'name')}
                   defaultValue={director?.name}
+                  required={slot.required}
                 />
-                <Field label="Email" name={`directorEmail-${index}`} type="email" defaultValue={director?.email} />
+                <Field
+                  label="Email"
+                  name={getAuthorizationSignerFieldName(slot, 'email')}
+                  type="email"
+                  defaultValue={director?.email}
+                  required={slot.required}
+                />
                 <Field
                   label="Present / consenting"
-                  name={`directorPresence-${index}`}
+                  name={getAuthorizationSignerFieldName(slot, 'presence')}
                   defaultValue={director?.presence ?? 'Consented'}
+                  required={slot.required}
                 />
-                <Field label="Vote" name={`directorVote-${index}`} defaultValue={director?.vote ?? 'For'} />
+                <Field
+                  label="Vote"
+                  name={getAuthorizationSignerFieldName(slot, 'vote')}
+                  defaultValue={director?.vote ?? 'For'}
+                  required={slot.required}
+                />
               </div>
             );
           })}
