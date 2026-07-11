@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Board Authorization"
+  short_description: "Create logged Documenso board authorization drafts"
+  default_prompt: "Use $create-board-authorization to create a ready-to-review board authorization draft from my decision details."
