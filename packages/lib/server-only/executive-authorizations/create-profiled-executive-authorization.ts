@@ -1,25 +1,31 @@
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 
+import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
 import { createAuthorizationSigningEnvelope } from './create-authorization-signing-envelope';
 import { createExecutiveAuthorization } from './create-executive-authorization';
 import { getExecutiveAuthorization } from './get-executive-authorization';
 import { getExecutiveAuthorizationProfile } from './get-executive-authorization-profile';
 import { mergeAuthorizationProfilePayload } from './profile-payload';
+import { normalizeAuthorizationSigners } from './stored-signers';
 import type { AuthorizationTemplateKey } from './types';
 
+type AuthorizationEnvelopeIntegrityInput = Parameters<typeof assertAuthorizationEnvelopeIntegrity>[0];
+
 type ProfiledExecutiveAuthorizationRecord = {
-  envelope: null | {
-    id: string;
-    [key: string]: unknown;
-  };
+  envelope: AuthorizationEnvelopeIntegrityInput['envelope'] | null;
+  generatedDocumentDataId: string | null;
   id: string;
+  renderedMarkdown: string;
   signers: unknown;
   status: string;
   templateKey: string;
+  templateVersion: number;
+  title: string;
   [key: string]: unknown;
 };
 
 type ProfiledExecutiveAuthorizationDependencies = {
+  assertEnvelopeIntegrity: typeof assertAuthorizationEnvelopeIntegrity;
   createAuthorization: (input: Record<string, unknown>) => Promise<{ id: string }>;
   createEnvelope: (input: {
     id: string;
@@ -35,6 +41,7 @@ type ProfiledExecutiveAuthorizationDependencies = {
 };
 
 const defaultDependencies: ProfiledExecutiveAuthorizationDependencies = {
+  assertEnvelopeIntegrity: assertAuthorizationEnvelopeIntegrity,
   createAuthorization: createExecutiveAuthorization,
   createEnvelope: createAuthorizationSigningEnvelope,
   getAuthorization: getExecutiveAuthorization,
@@ -86,6 +93,7 @@ export const createProfiledExecutiveAuthorization = async (
     userId,
   });
   let generationError: string | null = null;
+  let integrityError: string | null = null;
 
   if (generateDocument) {
     try {
@@ -109,8 +117,28 @@ export const createProfiledExecutiveAuthorization = async (
     throw new Error('Created authorization could not be loaded.');
   }
 
+  if (currentAuthorization.envelope) {
+    try {
+      await dependencies.assertEnvelopeIntegrity({
+        authorization: {
+          generatedDocumentDataId: currentAuthorization.generatedDocumentDataId,
+          id: currentAuthorization.id,
+          renderedMarkdown: currentAuthorization.renderedMarkdown,
+          signers: normalizeAuthorizationSigners(currentAuthorization.signers),
+          templateKey: currentAuthorization.templateKey as AuthorizationTemplateKey,
+          templateVersion: currentAuthorization.templateVersion,
+          title: currentAuthorization.title,
+        },
+        envelope: currentAuthorization.envelope,
+      });
+    } catch (error) {
+      integrityError = error instanceof Error ? error.message : 'Unable to validate the signing document.';
+    }
+  }
+
   return {
     authorization: currentAuthorization,
     generationError,
+    integrityError,
   };
 };

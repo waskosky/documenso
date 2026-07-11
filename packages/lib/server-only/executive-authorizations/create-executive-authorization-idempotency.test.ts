@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 
 import { Prisma } from '@prisma/client';
 
+import { buildExecutiveAuthorizationRequestFingerprint } from './authorization-request-fingerprint';
 import { createExecutiveAuthorization } from './create-executive-authorization';
+import { prepareExecutiveAuthorizationRecord } from './prepare-executive-authorization';
 
 const input = {
   externalId: 'agent-request:example-approval-2026-07-11',
@@ -33,7 +35,8 @@ const input = {
 };
 
 void (async () => {
-  const existing = { id: 'authorization_existing' };
+  const requestFingerprint = buildExecutiveAuthorizationRequestFingerprint(prepareExecutiveAuthorizationRecord(input));
+  const existing = { id: 'authorization_existing', requestFingerprint };
   let createCalled = false;
   let findArguments: unknown;
 
@@ -64,7 +67,7 @@ void (async () => {
   });
 
   let raceLookupCount = 0;
-  const raceWinner = { id: 'authorization_race_winner' };
+  const raceWinner = { id: 'authorization_race_winner', requestFingerprint };
   const racePrismaClient = {
     executiveAuthorization: {
       create: () =>
@@ -86,6 +89,21 @@ void (async () => {
 
   assert.equal(raceResult, raceWinner);
   assert.equal(raceLookupCount, 2);
+
+  await assert.rejects(
+    () =>
+      createExecutiveAuthorization(
+        {
+          ...input,
+          payload: {
+            ...input.payload,
+            actionTitle: 'A different legal decision using the same external ID',
+          },
+        },
+        prismaClient as never,
+      ),
+    /external ID.*different request/i,
+  );
 
   console.log('executive authorization idempotency tests passed');
 })();

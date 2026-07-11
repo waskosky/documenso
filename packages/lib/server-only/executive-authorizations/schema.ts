@@ -5,6 +5,16 @@ import type { AuthorizationTemplateKey } from './types';
 
 export const ZAuthorizationTemplateKeySchema = z.enum(['board_resolution_secretary_certificate']);
 
+const ZAuthorizationActionDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Action date must be a valid date in YYYY-MM-DD format.')
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, 'Action date must be a valid date in YYYY-MM-DD format.');
+
 export const ZBoardDirectorVoteSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   name: z.string().trim().min(1),
@@ -13,7 +23,7 @@ export const ZBoardDirectorVoteSchema = z.object({
 });
 
 export const ZBoardResolutionCertificatePayloadSchema = z.object({
-  actionDate: z.string().trim().min(1),
+  actionDate: ZAuthorizationActionDateSchema,
   actionTitle: z.string().trim().min(1),
   authorizedOfficerName: z.string().trim().min(1),
   authorizedOfficerTitle: z.string().trim().min(1),

@@ -14,6 +14,7 @@ type BuildAuthorizationEnvelopePlanOptions = {
   signaturePageNumber: number;
   signers: AuthorizationSigner[];
   templateKey: AuthorizationTemplateKey;
+  templateVersion: number;
   title: string;
 };
 
@@ -128,9 +129,10 @@ export const buildAuthorizationEnvelopePlan = ({
   signaturePageNumber,
   signers,
   templateKey,
+  templateVersion,
   title,
 }: BuildAuthorizationEnvelopePlanOptions): AuthorizationEnvelopePlan => {
-  const template = getAuthorizationTemplate(templateKey);
+  const template = getAuthorizationTemplate(templateKey, templateVersion);
   const recipients = signers
     .map((signer, index) => ({
       ...signer,

@@ -82,6 +82,7 @@ Successful output includes:
 - `envelopeId` and `editorUrl`
 - `signerCount` (expected `3`)
 - `fieldCount` (expected `6`: signature and date for each director)
+- `integrityValid` (expected `true`) and `integrityError` (expected `null`)
 - `status`
 - `generationError`, normally `null`
 
@@ -93,4 +94,4 @@ The API never sends the envelope and never returns recipient signing tokens.
 - `GET /api/v2/executive-authorization/profile/{templateKey}`
 - `POST /api/v2/executive-authorization/profile/{templateKey}` with body `{ "payloadDefaults": { ... } }`
 
-Treat HTTP failures as failures. If draft creation returns a non-null `generationError`, preserve its `externalId`, report the error and authorization URL, and repair the same record rather than creating another.
+Treat HTTP failures as failures. If draft creation returns a non-null `generationError` or `integrityError`, or false `integrityValid`, preserve its `externalId`, report the error and authorization URL, and repair the same record rather than creating another.

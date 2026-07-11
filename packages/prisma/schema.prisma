@@ -244,8 +244,10 @@ enum ExecutiveAuthorizationType {
 model ExecutiveAuthorization {
   id String @id @default(cuid())
 
-  externalId       String?
-  title            String
+  externalId              String?
+  requestFingerprint      String?
+  generatedDocumentDataId String?
+  title                   String
   companyLegalName String
   type             ExecutiveAuthorizationType
   status           ExecutiveAuthorizationStatus @default(DRAFT)

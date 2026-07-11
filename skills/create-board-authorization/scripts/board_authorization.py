@@ -7,11 +7,19 @@ import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 DEFAULT_BASE_URL = "https://sign.disclosurecomics.com"
 DEFAULT_TEMPLATE_KEY = "board_resolution_secretary_certificate"
+
+
+class _RejectRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        raise HTTPError(request.full_url, code, "Redirects are not allowed.", headers, file_pointer)
+
+
+_URL_OPENER = build_opener(_RejectRedirectHandler())
 
 
 def _load_json(path):
@@ -48,7 +56,7 @@ def _request(*, base_url, body, method, path, timeout, token):
     )
 
     try:
-        with urlopen(request, timeout=timeout) as response:
+        with _URL_OPENER.open(request, timeout=timeout) as response:
             raw_response = response.read().decode("utf-8")
     except HTTPError as error:
         raw_error = error.read().decode("utf-8", errors="replace")

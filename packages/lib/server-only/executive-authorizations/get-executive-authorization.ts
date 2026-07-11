@@ -13,18 +13,42 @@ export const getExecutiveAuthorization = async ({ id, teamId }: { id: string; te
       envelope: {
         select: {
           completedAt: true,
+          externalId: true,
           envelopeItems: {
             orderBy: {
               order: 'asc',
             },
             select: {
               envelopeId: true,
+              documentDataId: true,
               id: true,
               order: true,
               title: true,
             },
           },
           id: true,
+          recipients: {
+            orderBy: {
+              signingOrder: 'asc',
+            },
+            select: {
+              email: true,
+              fields: {
+                select: {
+                  envelopeItemId: true,
+                  height: true,
+                  page: true,
+                  positionX: true,
+                  positionY: true,
+                  type: true,
+                  width: true,
+                },
+              },
+              name: true,
+              role: true,
+              signingOrder: true,
+            },
+          },
           secondaryId: true,
           status: true,
           title: true,

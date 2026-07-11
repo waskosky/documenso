@@ -3,11 +3,6 @@ import {
   ZBoardResolutionCertificatePayloadSchema,
 } from '@documenso/lib/server-only/executive-authorizations/schema';
 import { normalizeAuthorizationSigners } from '@documenso/lib/server-only/executive-authorizations/stored-signers';
-import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
-import type {
-  AuthorizationTemplateFieldPlacement,
-  AuthorizationTemplateKey,
-} from '@documenso/lib/server-only/executive-authorizations/types';
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -47,41 +42,38 @@ export const ZCreateAuthorizationResponseSchema = z.object({
   envelopeId: z.string().nullable(),
   fieldCount: z.number().int().nonnegative(),
   generationError: z.string().nullable(),
+  integrityError: z.string().nullable(),
+  integrityValid: z.boolean(),
   signerCount: z.number().int().nonnegative(),
   status: z.nativeEnum(ExecutiveAuthorizationStatus),
 });
 
-const placementAppliesToRole = (placement: AuthorizationTemplateFieldPlacement, signerRole: string) =>
-  placement.appliesTo === 'all_signers' ||
-  placement.appliesTo.signerRole.trim().toLowerCase() === signerRole.trim().toLowerCase();
-
 export const buildCreateAuthorizationResponse = ({
   authorization,
   generationError,
+  integrityError,
   teamUrl,
   webAppUrl,
 }: {
   authorization: {
-    envelope: { id: string } | null;
+    envelope: {
+      id: string;
+      recipients: Array<{ fields: unknown[] }>;
+    } | null;
     id: string;
     signers: unknown;
     status: string;
     templateKey: string;
   };
   generationError: string | null;
+  integrityError: string | null;
   teamUrl: string;
   webAppUrl: string;
 }) => {
   const baseUrl = webAppUrl.replace(/\/+$/, '');
   const signers = normalizeAuthorizationSigners(authorization.signers);
-  const templateKey = authorization.templateKey as AuthorizationTemplateKey;
-  const template = getAuthorizationTemplate(templateKey);
-  const fieldCount = signers.reduce(
-    (count, signer) =>
-      count +
-      template.signing.fieldPlacements.filter((placement) => placementAppliesToRole(placement, signer.role)).length,
-    0,
-  );
+  const fieldCount =
+    authorization.envelope?.recipients.reduce((count, recipient) => count + recipient.fields.length, 0) ?? 0;
   const authorizationUrl = `${baseUrl}/t/${teamUrl}/authorizations/${authorization.id}`;
   const envelopeId = authorization.envelope?.id ?? null;
 
@@ -92,7 +84,9 @@ export const buildCreateAuthorizationResponse = ({
     envelopeId,
     fieldCount,
     generationError,
-    signerCount: signers.length,
+    integrityError,
+    integrityValid: Boolean(authorization.envelope) && integrityError === null,
+    signerCount: authorization.envelope?.recipients.length ?? signers.length,
     status: authorization.status as ExecutiveAuthorizationStatus,
   };
 };

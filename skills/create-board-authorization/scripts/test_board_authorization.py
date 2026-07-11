@@ -19,6 +19,7 @@ class _ApiHandler(BaseHTTPRequestHandler):
     requests = []
     response_status = 200
     response_body = {"ok": True}
+    response_headers = {}
 
     def do_GET(self):
         self._handle_request()
@@ -46,6 +47,37 @@ class _ApiHandler(BaseHTTPRequestHandler):
         encoded_response = json.dumps(self.__class__.response_body).encode("utf-8")
         self.send_response(self.__class__.response_status)
         self.send_header("Content-Type", "application/json")
+        for name, value in self.__class__.response_headers.items():
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(encoded_response)))
+        self.end_headers()
+        self.wfile.write(encoded_response)
+
+
+class _RedirectTargetHandler(BaseHTTPRequestHandler):
+    requests = []
+
+    def do_GET(self):
+        self._handle_request()
+
+    def do_POST(self):
+        self._handle_request()
+
+    def log_message(self, _format, *_args):
+        return
+
+    def _handle_request(self):
+        self.__class__.requests.append(
+            {
+                "authorization": self.headers.get("Authorization"),
+                "method": self.command,
+                "path": self.path,
+            }
+        )
+
+        encoded_response = json.dumps({"redirected": True}).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(encoded_response)))
         self.end_headers()
         self.wfile.write(encoded_response)
@@ -59,16 +91,29 @@ class BoardAuthorizationClientTest(unittest.TestCase):
         cls.server_thread.start()
         cls.base_url = f"http://127.0.0.1:{cls.server.server_port}"
 
+        cls.redirect_target_server = ThreadingHTTPServer(("127.0.0.1", 0), _RedirectTargetHandler)
+        cls.redirect_target_thread = threading.Thread(
+            target=cls.redirect_target_server.serve_forever,
+            daemon=True,
+        )
+        cls.redirect_target_thread.start()
+        cls.redirect_target_url = f"http://127.0.0.1:{cls.redirect_target_server.server_port}"
+
     @classmethod
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.server.server_close()
         cls.server_thread.join(timeout=5)
+        cls.redirect_target_server.shutdown()
+        cls.redirect_target_server.server_close()
+        cls.redirect_target_thread.join(timeout=5)
 
     def setUp(self):
         _ApiHandler.requests = []
         _ApiHandler.response_status = 200
         _ApiHandler.response_body = {"ok": True}
+        _ApiHandler.response_headers = {}
+        _RedirectTargetHandler.requests = []
 
     def run_client(self, *arguments, input_payload=None):
         env = {
@@ -168,6 +213,27 @@ class BoardAuthorizationClientTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn(TEST_TOKEN, result.stderr)
         self.assertIn("[REDACTED]", result.stderr)
+
+    def test_redirect_is_rejected_without_contacting_target(self):
+        _ApiHandler.response_status = 302
+        _ApiHandler.response_headers = {
+            "Location": f"{self.redirect_target_url}/redirect-target",
+        }
+
+        result = self.run_client("profile-get")
+
+        self.assertEqual(
+            {
+                "redirect_target_requests": _RedirectTargetHandler.requests,
+                "returncode": result.returncode,
+            },
+            {
+                "redirect_target_requests": [],
+                "returncode": 1,
+            },
+            result.stderr,
+        )
+        self.assertIn("(302)", result.stderr)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@ import { getAuthorizationTemplate } from './templates';
 
 const template = getAuthorizationTemplate('board_resolution_secretary_certificate');
 
+assert.equal(getAuthorizationTemplate('board_resolution_secretary_certificate', 1), template);
+assert.throws(() => getAuthorizationTemplate('board_resolution_secretary_certificate', 999), /template version 999/i);
+
 assert.deepEqual(template.signing.signerRoles, [
   {
     key: 'director',

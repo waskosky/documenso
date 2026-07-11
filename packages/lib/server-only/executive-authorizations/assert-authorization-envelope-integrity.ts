@@ -3,6 +3,7 @@ import { generateAuthorizationPdf } from './generate-authorization-pdf';
 import type { AuthorizationSigner, AuthorizationTemplateKey } from './types';
 
 type AuthorizationEnvelopeIntegrityField = {
+  envelopeItemId: string;
   height: unknown;
   page: number;
   positionX: unknown;
@@ -17,6 +18,11 @@ type AuthorizationEnvelopeIntegrityRecipient = {
   name: string;
   role: string;
   signingOrder: number | null;
+};
+
+type AuthorizationEnvelopeIntegrityItem = {
+  documentDataId: string;
+  id: string;
 };
 
 const integrityError = (message: string): never => {
@@ -38,13 +44,16 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
   envelope,
 }: {
   authorization: {
+    generatedDocumentDataId: string | null;
     id: string;
     renderedMarkdown: string;
     signers: AuthorizationSigner[];
     templateKey: AuthorizationTemplateKey;
+    templateVersion: number;
     title: string;
   };
   envelope: {
+    envelopeItems: AuthorizationEnvelopeIntegrityItem[];
     externalId: string | null;
     id: string;
     recipients: AuthorizationEnvelopeIntegrityRecipient[];
@@ -61,11 +70,22 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
     signaturePageNumber: pdf.signaturePageNumber,
     signers: authorization.signers,
     templateKey: authorization.templateKey,
+    templateVersion: authorization.templateVersion,
     title: authorization.title,
   });
 
   if (envelope.externalId !== expected.externalId) {
     integrityError(`external ID must be "${expected.externalId}".`);
+  }
+
+  if (envelope.envelopeItems.length !== 1) {
+    integrityError('envelope must contain exactly one document.');
+  }
+
+  const envelopeItem = envelope.envelopeItems[0];
+
+  if (!envelopeItem || envelopeItem.documentDataId !== authorization.generatedDocumentDataId) {
+    integrityError('generated document does not match the authorization record.');
   }
 
   const actualRecipients = [...envelope.recipients].sort(
@@ -117,6 +137,10 @@ export const assertAuthorizationEnvelopeIntegrity = async ({
 
       if (actualField.type !== expectedField.type) {
         integrityError(`recipient ${recipientNumber} field type must be ${expectedField.type}.`);
+      }
+
+      if (actualField.envelopeItemId !== envelopeItem.id) {
+        integrityError(`recipient ${recipientNumber} field ${fieldNumber} is not attached to the generated document.`);
       }
 
       if (actualField.page !== expectedField.page) {

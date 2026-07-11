@@ -65,6 +65,12 @@ export const sendExecutiveAuthorization = async ({
       envelope: {
         select: {
           externalId: true,
+          envelopeItems: {
+            select: {
+              documentDataId: true,
+              id: true,
+            },
+          },
           id: true,
           recipients: {
             orderBy: {
@@ -74,6 +80,7 @@ export const sendExecutiveAuthorization = async ({
               email: true,
               fields: {
                 select: {
+                  envelopeItemId: true,
                   height: true,
                   page: true,
                   positionX: true,
@@ -90,9 +97,11 @@ export const sendExecutiveAuthorization = async ({
         },
       },
       id: true,
+      generatedDocumentDataId: true,
       renderedMarkdown: true,
       signers: true,
       templateKey: true,
+      templateVersion: true,
       title: true,
     },
     where: {
@@ -111,9 +120,11 @@ export const sendExecutiveAuthorization = async ({
   await assertAuthorizationEnvelopeIntegrity({
     authorization: {
       id: integrityAuthorization.id,
+      generatedDocumentDataId: integrityAuthorization.generatedDocumentDataId,
       renderedMarkdown: integrityAuthorization.renderedMarkdown,
       signers: normalizeAuthorizationSigners(integrityAuthorization.signers),
       templateKey: integrityAuthorization.templateKey as AuthorizationTemplateKey,
+      templateVersion: integrityAuthorization.templateVersion,
       title: integrityAuthorization.title,
     },
     envelope: integrityAuthorization.envelope,

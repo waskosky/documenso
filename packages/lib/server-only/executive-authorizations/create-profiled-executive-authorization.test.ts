@@ -41,6 +41,7 @@ const input = {
 void (async () => {
   let createInput: Record<string, unknown> | undefined;
   let envelopeCalls = 0;
+  let integrityCalls = 0;
   const readyAuthorization = {
     envelope: {
       id: 'envelope_example',
@@ -61,6 +62,11 @@ void (async () => {
     templateKey,
   };
   const dependencies = {
+    assertEnvelopeIntegrity: () => {
+      integrityCalls += 1;
+
+      return Promise.resolve();
+    },
     createAuthorization: (value: Record<string, unknown>) => {
       createInput = value;
       return Promise.resolve({ id: 'authorization_example' });
@@ -69,7 +75,7 @@ void (async () => {
       envelopeCalls += 1;
       return Promise.resolve({ id: 'envelope_example' });
     },
-    getAuthorization: () => Promise.resolve(readyAuthorization),
+    getAuthorization: () => Promise.resolve(readyAuthorization as never),
     getProfile: () => Promise.resolve({ payloadDefaults: profilePayload }),
   };
 
@@ -81,28 +87,38 @@ void (async () => {
     ...decisionPayload,
   });
   assert.equal(envelopeCalls, 1);
+  assert.equal(integrityCalls, 1);
   assert.equal(result.generationError, null);
+  assert.equal(result.integrityError, null);
   assert.equal(result.authorization, readyAuthorization);
 
   const withoutEnvelope = await createProfiledExecutiveAuthorization(
     { ...input, generateDocument: false },
     {
       ...dependencies,
-      getAuthorization: () => Promise.resolve({ ...readyAuthorization, envelope: null, status: 'DRAFT' }),
+      getAuthorization: () => Promise.resolve({ ...readyAuthorization, envelope: null, status: 'DRAFT' } as never),
     },
   );
 
   assert.equal(envelopeCalls, 1);
+  assert.equal(integrityCalls, 1);
   assert.equal(withoutEnvelope.authorization.status, 'DRAFT');
 
   const failedGeneration = await createProfiledExecutiveAuthorization(input, {
     ...dependencies,
     createEnvelope: () => Promise.reject(new Error('PDF conversion unavailable')),
-    getAuthorization: () => Promise.resolve({ ...readyAuthorization, envelope: null, status: 'DRAFT' }),
+    getAuthorization: () => Promise.resolve({ ...readyAuthorization, envelope: null, status: 'DRAFT' } as never),
   });
 
   assert.equal(failedGeneration.authorization.status, 'DRAFT');
   assert.equal(failedGeneration.generationError, 'PDF conversion unavailable');
+
+  const failedIntegrity = await createProfiledExecutiveAuthorization(input, {
+    ...dependencies,
+    assertEnvelopeIntegrity: () => Promise.reject(new Error('Generated PDF identity does not match.')),
+  });
+
+  assert.equal(failedIntegrity.integrityError, 'Generated PDF identity does not match.');
 
   await assert.rejects(
     () =>
