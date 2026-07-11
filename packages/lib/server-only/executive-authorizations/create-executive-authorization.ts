@@ -1,4 +1,5 @@
 import { prisma } from '@documenso/prisma';
+import { Prisma } from '@prisma/client';
 
 import { prepareExecutiveAuthorizationRecord } from './prepare-executive-authorization';
 import { type TCreateExecutiveAuthorization, ZCreateExecutiveAuthorizationSchema } from './schema';
@@ -31,12 +32,13 @@ export const createExecutiveAuthorization = async (
   prismaClient: Pick<typeof prisma, 'executiveAuthorization'> = prisma,
 ) => {
   const parsed = ZCreateExecutiveAuthorizationSchema.parse(input);
+  const externalId = parsed.externalId;
 
-  if (parsed.externalId) {
+  if (externalId) {
     const existing = await prismaClient.executiveAuthorization.findUnique({
       where: {
         teamId_externalId: {
-          externalId: parsed.externalId,
+          externalId,
           teamId: parsed.teamId,
         },
       },
@@ -49,7 +51,28 @@ export const createExecutiveAuthorization = async (
 
   const prepared = prepareExecutiveAuthorizationRecord(parsed);
 
-  return await prismaClient.executiveAuthorization.create({
-    data: buildExecutiveAuthorizationCreateData({ parsed, prepared }),
-  });
+  try {
+    return await prismaClient.executiveAuthorization.create({
+      data: buildExecutiveAuthorizationCreateData({ parsed, prepared }),
+    });
+  } catch (error) {
+    if (!externalId || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+      throw error;
+    }
+
+    const existing = await prismaClient.executiveAuthorization.findUnique({
+      where: {
+        teamId_externalId: {
+          externalId,
+          teamId: parsed.teamId,
+        },
+      },
+    });
+
+    if (!existing) {
+      throw error;
+    }
+
+    return existing;
+  }
 };

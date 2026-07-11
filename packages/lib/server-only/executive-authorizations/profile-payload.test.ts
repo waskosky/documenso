@@ -98,4 +98,38 @@ assert.throws(
   /exactly 3 Director signers/i,
 );
 
+assert.throws(
+  () =>
+    parseAuthorizationTemplateProfilePayload({
+      payload: {
+        ...stableBoardDefaults,
+        directors: stableBoardDefaults.directors.map((director, index) =>
+          index === 1 ? { ...director, email: '' } : director,
+        ),
+      },
+      templateKey,
+    }),
+  /Director 2.*email address/i,
+);
+
+assert.throws(
+  () =>
+    parseAuthorizationTemplateProfilePayload({
+      payload: {
+        ...stableBoardDefaults,
+        directors: stableBoardDefaults.directors.map((director, index) => {
+          if (index !== 1) {
+            return director;
+          }
+
+          const { email: _email, ...withoutEmail } = director;
+
+          return withoutEmail;
+        }),
+      },
+      templateKey,
+    }),
+  /Director 2.*email address/i,
+);
+
 console.log('authorization profile payload tests passed');

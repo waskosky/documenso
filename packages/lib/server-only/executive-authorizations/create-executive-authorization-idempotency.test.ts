@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 
+import { Prisma } from '@prisma/client';
+
 import { createExecutiveAuthorization } from './create-executive-authorization';
 
 const input = {
@@ -60,6 +62,30 @@ void (async () => {
       },
     },
   });
+
+  let raceLookupCount = 0;
+  const raceWinner = { id: 'authorization_race_winner' };
+  const racePrismaClient = {
+    executiveAuthorization: {
+      create: () =>
+        Promise.reject(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+            clientVersion: 'test',
+            code: 'P2002',
+          }),
+        ),
+      findUnique: () => {
+        raceLookupCount += 1;
+
+        return Promise.resolve(raceLookupCount === 1 ? null : raceWinner);
+      },
+    },
+  };
+
+  const raceResult = await createExecutiveAuthorization(input, racePrismaClient as never);
+
+  assert.equal(raceResult, raceWinner);
+  assert.equal(raceLookupCount, 2);
 
   console.log('executive authorization idempotency tests passed');
 })();
