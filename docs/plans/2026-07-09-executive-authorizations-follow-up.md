@@ -161,7 +161,7 @@
 ## Production Automation Handoff From 2026-07-11
 
 - The generalized board-authorization workflow is deployed at `https://sign.disclosurecomics.com`.
-- Modern source is on GitHub `main` through implementation commit `7effa2f`; the deployed Documenso 2.4 compatibility line is based on `1253258` plus credential hardening.
+- Board Authorization template v2 is on GitHub `main` through implementation commit `4f48e58`; the deployed Documenso 2.4 compatibility implementation is `818050f`.
 - Migration `20260711120000_add_executive_authorization_profiles` is applied, and Prisma reports the live database schema is current.
 - The production endpoints are:
   - `POST /api/v2/executive-authorization/create`
@@ -173,16 +173,32 @@
 - The skill API client rejects redirects so bearer credentials cannot be forwarded to another origin. Draft creation never sends and never returns recipient signing tokens.
 - Live authenticated browser verification as `mike@disclosurecomics.com` confirmed:
   - authorization index, defaults, and new-authorization routes load without browser, server, or console errors
-  - exactly three director slots appear on defaults and new-record forms
-  - defaults flow into the new-record form
+  - the current template is version 2, with exactly three director slots and nine generated signing fields
+  - the defaults form exposes 26 structured controls and the create form exposes 37 controls on desktop and 390px mobile
+  - all governance thresholds, controlled vote/presence values, execution-role assignments, and decision fields are present
+  - ratification defaults unchecked, defaults flow into the new-record form, and legacy v1 records remain version-bound
   - creation has no automatic send action
   - desktop and 390px mobile layouts have no horizontal overflow or overlapping controls
 - The production profile currently returns `exists: false`. Do not configure it until the legal company/officer/secretary defaults and three distinct production director email addresses are explicitly approved. Validation aliases used by earlier smoke tests are not production defaults.
 - Known historical authorization `cmreqf4v00004gpzb04o9ma5z` remains `READY`, with envelope `envelope_bmefvkhvoxolyrsr` still `DRAFT`. The current pre-send check blocks it because its generated document identity is not linked to the durable authorization record. Do not send it.
 - Sending and editor mutations use the same PostgreSQL advisory lock. A send re-reads status and validates exact document, item, recipient, and field identity while holding that lock; concurrent edits or duplicate sends cannot bypass the check.
+- Status synchronization treats the durable three-director signer roster as authoritative and rejects changed, missing, reordered, role-changed, or additional envelope recipients.
+- Sending now requires a separately generated `READY` envelope so PDF and field placement review cannot be bypassed by a combined generate-and-send action.
 - Human-browser streaming currently leaves a stray `$` text node at the very bottom of Documenso pages because late React stream chunks arrive after the closing HTML tags. A bot request using `onAllReady` does not reproduce it. Treat an adapter/streaming correction as separate, soon follow-up work; evaluate the latency tradeoff before making all human requests wait for `onAllReady`.
 
-**Next operational action:** collect and approve the stable profile values, save them through `/t/personal_yhxdhhoozfmdbnbd/authorizations/settings` or the skill's `profile-set`, then create one review-only authorization through the skill and verify `signerCount=3`, `fieldCount=6`, and `integrityValid=true`. Sending remains a separate explicit human action.
+**Next operational action:** collect and approve the stable legal entity, governance thresholds, three-director roster, Secretary assignment, and Authorized Officer assignment. Save them through `/t/personal_yhxdhhoozfmdbnbd/authorizations/settings` or the skill's `profile-set`, then create one review-only authorization through the skill and verify `signerCount=3`, `fieldCount=9`, and `integrityValid=true`. Sending remains a separate explicit human action after review.
+
+## Near-Term Future Work: Integration And Export
+
+Keep Documenso and `ExecutiveAuthorization` as replaceable system boundaries rather than coupling agents to one vendor-specific document model.
+
+1. Add read-only query tooling for agents to list authorization records, inspect status, and retrieve final artifact links without exposing recipient tokens.
+2. Publish normalized authorization lifecycle events through an outbox/webhook adapter so future accounting, records, project-management, or board-minute systems can subscribe without changing authorization services.
+3. Add structured JSON and CSV exports of decision metadata, signer status, external IDs, and artifact references; keep signed PDF and certificate bytes in Documenso rather than duplicating them by default.
+4. Add a narrow MCP server only when the target agent platform and authentication boundary are selected. It should call the existing profile/create/query APIs and must retain the no-send default.
+5. Add retention, backup, and reconciliation checks for authorization records and linked Documenso envelopes before connecting another system of record.
+
+Do not create a separate integration repository until one of these adapters has an independently deployable lifecycle. If that point is reached, use a private, narrowly scoped repository such as `waskosky/documenso-custom` rather than hardcoding platform-specific logic into the fork.
 
 ## Priority 5: Editable Records And Template Expansion
 
