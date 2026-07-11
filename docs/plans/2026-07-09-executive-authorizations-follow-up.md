@@ -158,6 +158,32 @@
 - `syncExecutiveAuthorizationForEnvelope(...)` now updates the authorization record from the envelope recipient/status state.
 - The sync service is called after recipient signing, seal completion/rejection, recipient rejection, external/API rejection, and cancellation, so manual refresh remains a fallback rather than the normal path.
 
+## Production Automation Handoff From 2026-07-11
+
+- The generalized board-authorization workflow is deployed at `https://sign.disclosurecomics.com`.
+- Modern source is on GitHub `main` through implementation commit `7effa2f`; the deployed Documenso 2.4 compatibility line is based on `1253258` plus credential hardening.
+- Migration `20260711120000_add_executive_authorization_profiles` is applied, and Prisma reports the live database schema is current.
+- The production endpoints are:
+  - `POST /api/v2/executive-authorization/create`
+  - `GET /api/v2/executive-authorization/profile/{templateKey}`
+  - `POST /api/v2/executive-authorization/profile/{templateKey}`
+- The team-scoped API token named `Codex Board Authorization Agent` is stored only in hashed form by Documenso. Its one-time client value is in `~/.config/disclosure-sign/api-token` with mode `0600`; do not copy it into a repository, shell history, durable log, or chat response.
+- The canonical skill is `skills/create-board-authorization`, installed for agents at `~/.codex/skills/create-board-authorization` as a symlink to the live checkout.
+- The skill reads a direct `DISCLOSURE_SIGN_API_TOKEN` first, then `DISCLOSURE_SIGN_API_TOKEN_FILE`, then the private default token file. It uses an explicit agent user-agent because Cloudflare rejects Python urllib's default signature with error 1010.
+- The skill API client rejects redirects so bearer credentials cannot be forwarded to another origin. Draft creation never sends and never returns recipient signing tokens.
+- Live authenticated browser verification as `mike@disclosurecomics.com` confirmed:
+  - authorization index, defaults, and new-authorization routes load without browser, server, or console errors
+  - exactly three director slots appear on defaults and new-record forms
+  - defaults flow into the new-record form
+  - creation has no automatic send action
+  - desktop and 390px mobile layouts have no horizontal overflow or overlapping controls
+- The production profile currently returns `exists: false`. Do not configure it until the legal company/officer/secretary defaults and three distinct production director email addresses are explicitly approved. Validation aliases used by earlier smoke tests are not production defaults.
+- Known historical authorization `cmreqf4v00004gpzb04o9ma5z` remains `READY`, with envelope `envelope_bmefvkhvoxolyrsr` still `DRAFT`. The current pre-send check blocks it because its generated document identity is not linked to the durable authorization record. Do not send it.
+- Sending and editor mutations use the same PostgreSQL advisory lock. A send re-reads status and validates exact document, item, recipient, and field identity while holding that lock; concurrent edits or duplicate sends cannot bypass the check.
+- Human-browser streaming currently leaves a stray `$` text node at the very bottom of Documenso pages because late React stream chunks arrive after the closing HTML tags. A bot request using `onAllReady` does not reproduce it. Treat an adapter/streaming correction as separate, soon follow-up work; evaluate the latency tradeoff before making all human requests wait for `onAllReady`.
+
+**Next operational action:** collect and approve the stable profile values, save them through `/t/personal_yhxdhhoozfmdbnbd/authorizations/settings` or the skill's `profile-set`, then create one review-only authorization through the skill and verify `signerCount=3`, `fieldCount=6`, and `integrityValid=true`. Sending remains a separate explicit human action.
+
 ## Priority 5: Editable Records And Template Expansion
 
 **Files to inspect first:**
