@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 
-import { withAuthorizationEnvelopeGenerationLock } from './authorization-envelope-generation-lock';
+import { withAuthorizationEnvelopeLock } from './authorization-envelope-lock';
 
 void (async () => {
   let queryCalled = false;
   let operationCalled = false;
   let transactionOptions: unknown;
 
-  const result = await withAuthorizationEnvelopeGenerationLock({
+  const result = await withAuthorizationEnvelopeLock({
     authorizationId: 'authorization_example',
     operation: () => {
       operationCalled = true;
@@ -41,5 +41,5 @@ void (async () => {
     timeout: 120_000,
   });
 
-  console.log('authorization envelope generation lock tests passed');
+  console.log('authorization envelope lock tests passed');
 })();

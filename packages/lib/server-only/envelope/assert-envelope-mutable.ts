@@ -3,6 +3,7 @@ import { match } from 'ts-pattern';
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { isTspEnvelope } from '../../types/signature-level';
+import { acquireAuthorizationEnvelopeLock } from '../executive-authorizations/authorization-envelope-lock';
 
 type EnvelopeMutableSnapshot = {
   signatureLevel: string;
@@ -19,8 +20,9 @@ type EnvelopeIdRef = Pick<Envelope, 'id'>;
  * clicking Sign (now against PDF_v2). The SAD would authorise PDF_v2's digest
  * while the recipient viewed PDF_v1 — a WYSIWYS break.
  *
- * SES envelopes pass through unchanged. The existing per-route guards still
- * enforce COMPLETED/REJECTED rejection for them.
+ * SES envelopes pass through unchanged unless they belong to an executive
+ * authorization. Those envelopes share the authorization send lock and become
+ * immutable after leaving DRAFT.
  *
  * Call this **twice** at every TSP-eligible authoring route:
  *
@@ -53,12 +55,43 @@ export async function assertEnvelopeMutable(
 }
 
 const refetchAndAssert = async (tx: Prisma.TransactionClient, envelopeId: string): Promise<void> => {
-  const refetched = await tx.envelope.findFirstOrThrow({
+  const snapshot = await tx.envelope.findFirstOrThrow({
+    where: { id: envelopeId },
+    select: {
+      executiveAuthorization: {
+        select: {
+          id: true,
+          teamId: true,
+        },
+      },
+      signatureLevel: true,
+      status: true,
+    },
+  });
+
+  if (!snapshot.executiveAuthorization) {
+    assertSnapshotMutable(snapshot);
+    return;
+  }
+
+  await acquireAuthorizationEnvelopeLock({
+    authorizationId: snapshot.executiveAuthorization.id,
+    teamId: snapshot.executiveAuthorization.teamId,
+    transaction: tx,
+  });
+
+  const lockedSnapshot = await tx.envelope.findFirstOrThrow({
     where: { id: envelopeId },
     select: { signatureLevel: true, status: true },
   });
 
-  assertSnapshotMutable(refetched);
+  if (lockedSnapshot.status !== DocumentStatus.DRAFT) {
+    throw new AppError(AppErrorCode.INVALID_REQUEST, {
+      message: `Executive authorization envelopes cannot be modified after leaving DRAFT (current status: ${lockedSnapshot.status}).`,
+    });
+  }
+
+  assertSnapshotMutable(lockedSnapshot);
 };
 
 const assertSnapshotMutable = (envelope: EnvelopeMutableSnapshot): void => {

@@ -1,7 +1,7 @@
 import { prisma } from '@documenso/prisma';
 import { Prisma } from '@prisma/client';
 
-type AuthorizationEnvelopeLockTransaction = Pick<Prisma.TransactionClient, '$executeRaw'>;
+export type AuthorizationEnvelopeLockTransaction = Pick<Prisma.TransactionClient, '$executeRaw'>;
 
 type AuthorizationEnvelopeLockPrismaClient = {
   $transaction: <T>(
@@ -13,7 +13,21 @@ type AuthorizationEnvelopeLockPrismaClient = {
 const AUTHORIZATION_ENVELOPE_LOCK_MAX_WAIT = 10_000;
 const AUTHORIZATION_ENVELOPE_LOCK_TIMEOUT = 120_000;
 
-export const withAuthorizationEnvelopeGenerationLock = async <T>({
+export const acquireAuthorizationEnvelopeLock = async ({
+  authorizationId,
+  teamId,
+  transaction,
+}: {
+  authorizationId: string;
+  teamId: number;
+  transaction: AuthorizationEnvelopeLockTransaction;
+}) => {
+  const lockKey = `executive-authorization-envelope:${teamId}:${authorizationId}`;
+
+  await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+};
+
+export const withAuthorizationEnvelopeLock = async <T>({
   authorizationId,
   operation,
   prismaClient = prisma as unknown as AuthorizationEnvelopeLockPrismaClient,
@@ -24,11 +38,9 @@ export const withAuthorizationEnvelopeGenerationLock = async <T>({
   prismaClient?: AuthorizationEnvelopeLockPrismaClient;
   teamId: number;
 }) => {
-  const lockKey = `executive-authorization-envelope:${teamId}:${authorizationId}`;
-
   return await prismaClient.$transaction(
     async (transaction) => {
-      await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`);
+      await acquireAuthorizationEnvelopeLock({ authorizationId, teamId, transaction });
 
       return await operation();
     },

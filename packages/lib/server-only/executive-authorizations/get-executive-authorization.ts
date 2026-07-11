@@ -14,6 +14,7 @@ export const getExecutiveAuthorization = async ({ id, teamId }: { id: string; te
         select: {
           completedAt: true,
           externalId: true,
+          formValues: true,
           envelopeItems: {
             orderBy: {
               order: 'asc',
