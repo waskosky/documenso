@@ -10,7 +10,7 @@ Create a logged Documenso authorization draft from decision facts. The API creat
 ## Workflow
 
 1. Read `references/api.md` before the first API operation in a session.
-2. Get the current profile with `scripts/board_authorization.py profile-get`. Do not create a draft when `exists` is false or `needsUpgrade` is true. Stable organization, governance thresholds, officer, secretary, and three-director details come from this profile. Update it only with values explicitly approved by the user.
+2. Get the current profile with `scripts/board_authorization.py profile-get`. Do not create a draft when `exists` is false or `needsUpgrade` is true. Stable organization, governance thresholds, officer, secretary, and three-director details come from this profile. Update it only with values explicitly approved by the user. For human-assisted setup, prefer `scripts/configure_board_profile.sh`: first run it with `--dry-run`, then run it without that flag and type the exact confirmation `SAVE` only after reviewing the preview. Existing values become prompt defaults. Use `--blank` only when intentionally ignoring those defaults for one run. Profile setup does not create or send an envelope.
 3. Gather the variable decision facts:
    - `actionDate` (prefer `YYYY-MM-DD`)
    - `certificateDate` (prefer `YYYY-MM-DD`; it must not precede `actionDate`)

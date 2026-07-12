@@ -21,6 +21,15 @@ python3 scripts/board_authorization.py profile-get
 The response includes `exists`, `templateVersion`, `currentTemplateVersion`, and `needsUpgrade`. Do not create from a missing profile or one with `needsUpgrade: true`. Update only with reviewed, user-approved values:
 
 ```bash
+./scripts/configure_board_profile.sh --dry-run
+./scripts/configure_board_profile.sh
+```
+
+The interactive configurator is the preferred human setup path. It loads existing values as defaults, prompts for every version-2 field, and builds the JSON with `jq`. `--dry-run` prints the proposed profile without writing it. A real update shows the same preview and requires the exact confirmation `SAVE`. Use `--blank` only to deliberately skip loading the current profile. Authentication remains in `board_authorization.py`; the Bash script never reads or prints the token. Profile setup does not create or send an envelope.
+
+For non-interactive automation, submit a reviewed raw defaults object directly:
+
+```bash
 python3 scripts/board_authorization.py profile-set --input profile.json
 ```
 
