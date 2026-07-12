@@ -12,10 +12,101 @@ from pathlib import Path
 
 
 SCRIPT_PATH = Path(__file__).with_name("board_authorization.py")
+CONFIGURE_SCRIPT_PATH = SCRIPT_PATH.with_name("configure_board_profile.sh")
 SKILL_PATH = SCRIPT_PATH.parents[1] / "SKILL.md"
 API_REFERENCE_PATH = SCRIPT_PATH.parents[1] / "references" / "api.md"
 TEST_TOKEN = "secret-test-token"
 EXPECTED_USER_AGENT = "DisclosureComics-BoardAuthorization-Agent/1.0 (+https://sign.disclosurecomics.com)"
+
+UNANIMOUS_PROFILE = {
+    "actionMethod": "UNANIMOUS_WRITTEN_CONSENT",
+    "approvalRequiredCount": 2,
+    "authorizedOfficerDirectorIndex": 1,
+    "authorizedOfficerName": "Director Two",
+    "authorizedOfficerTitle": "President",
+    "companyLegalName": "Example Company, Inc.",
+    "directors": [
+        {
+            "email": "one@example.test",
+            "name": "Director One",
+            "presence": "CONSENTED",
+            "vote": "FOR",
+        },
+        {
+            "email": "two@example.test",
+            "name": "Director Two",
+            "presence": "CONSENTED",
+            "vote": "FOR",
+        },
+        {
+            "email": "three@example.test",
+            "name": "Director Three",
+            "presence": "CONSENTED",
+            "vote": "FOR",
+        },
+    ],
+    "entityType": "corporation",
+    "equityHolderPlural": "stockholders",
+    "governingBodyName": "Board of Directors",
+    "governingMemberPlural": "directors",
+    "governingMemberSingular": "director",
+    "jurisdiction": "Colorado",
+    "quorumRequiredCount": 2,
+    "resolutionDisposition": "APPROVED_UNANIMOUSLY",
+    "secretaryDirectorIndex": 0,
+    "secretaryName": "Director One",
+}
+
+MEETING_PROFILE = {
+    **UNANIMOUS_PROFILE,
+    "actionMethod": "MEETING",
+    "directors": [
+        {
+            **UNANIMOUS_PROFILE["directors"][0],
+            "presence": "PRESENT",
+        },
+        {
+            **UNANIMOUS_PROFILE["directors"][1],
+            "presence": "PRESENT",
+        },
+        {
+            **UNANIMOUS_PROFILE["directors"][2],
+            "presence": "ABSENT",
+            "vote": "NOT_VOTING",
+        },
+    ],
+    "resolutionDisposition": "APPROVED_REQUIRED_VOTE",
+}
+
+
+def _unanimous_answers(*, action_choices=None, second_email="two@example.test", confirmation=None):
+    action_choices = action_choices or ["1"]
+    answers = [
+        "Example Company, Inc.",
+        "Colorado",
+        "corporation",
+        "Board of Directors",
+        "director",
+        "directors",
+        "stockholders",
+        *action_choices,
+        "2",
+        "2",
+        "Director One",
+        "one@example.test",
+        "Director Two",
+        second_email,
+        "Director Three",
+        "three@example.test",
+        "1",
+        "2",
+        "President",
+    ]
+
+    if confirmation is not None:
+        answers.append(confirmation)
+
+    return "\n".join(answers) + "\n"
 
 
 class _ApiHandler(BaseHTTPRequestHandler):
@@ -143,6 +234,23 @@ class BoardAuthorizationClientTest(unittest.TestCase):
 
         return subprocess.run(command, env=env, capture_output=True, text=True, check=False)
 
+    def run_configurator(self, *arguments, input_text="", environment=None):
+        env = {
+            **os.environ,
+            "DISCLOSURE_SIGN_API_TOKEN": TEST_TOKEN,
+            "DISCLOSURE_SIGN_BASE_URL": self.base_url,
+        }
+        env.update(environment or {})
+
+        return subprocess.run(
+            ["bash", str(CONFIGURE_SCRIPT_PATH), *arguments],
+            env=env,
+            input=input_text,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
     def test_create_posts_request_and_prints_response(self):
         payload = {
             "externalId": "board-2026-07-11-acquisition",
@@ -257,6 +365,120 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             },
         )
 
+    def test_configurator_dry_run_builds_complete_profile_without_api_write(self):
+        result = self.run_configurator(
+            "--dry-run",
+            "--blank",
+            input_text=_unanimous_answers(),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), UNANIMOUS_PROFILE)
+        self.assertEqual(_ApiHandler.requests, [])
+
+    def test_configurator_uses_current_profile_as_prompt_defaults(self):
+        _ApiHandler.response_body = {
+            "currentTemplateVersion": 2,
+            "exists": True,
+            "needsUpgrade": False,
+            "payloadDefaults": MEETING_PROFILE,
+            "templateKey": "board_resolution_secretary_certificate",
+            "templateVersion": 2,
+        }
+
+        result = self.run_configurator("--dry-run", input_text="\n" * 25)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), MEETING_PROFILE)
+        self.assertEqual(
+            _ApiHandler.requests,
+            [
+                {
+                    "authorization": f"Bearer {TEST_TOKEN}",
+                    "body": None,
+                    "method": "GET",
+                    "path": "/api/v2/executive-authorization/profile/board_resolution_secretary_certificate",
+                }
+            ],
+        )
+
+    def test_configurator_rejects_duplicate_director_emails_without_api_write(self):
+        result = self.run_configurator(
+            "--dry-run",
+            "--blank",
+            input_text=_unanimous_answers(second_email="ONE@example.test"),
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("distinct email address", result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(_ApiHandler.requests, [])
+
+    def test_configurator_reprompts_for_a_noncanonical_numeric_choice(self):
+        result = self.run_configurator(
+            "--dry-run",
+            "--blank",
+            input_text=_unanimous_answers(action_choices=["08", "1"]),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("value too great for base", result.stderr)
+        self.assertEqual(json.loads(result.stdout), UNANIMOUS_PROFILE)
+        self.assertEqual(_ApiHandler.requests, [])
+
+    def test_configurator_cancels_without_api_write(self):
+        result = self.run_configurator(
+            "--blank",
+            input_text=_unanimous_answers(confirmation="CANCEL"),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no changes were saved", result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(_ApiHandler.requests, [])
+
+    def test_configurator_saves_only_after_exact_confirmation(self):
+        _ApiHandler.response_body = {"saved": True}
+
+        result = self.run_configurator(
+            "--blank",
+            input_text=_unanimous_answers(confirmation="SAVE"),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {"saved": True})
+        self.assertEqual(
+            _ApiHandler.requests,
+            [
+                {
+                    "authorization": f"Bearer {TEST_TOKEN}",
+                    "body": {"payloadDefaults": UNANIMOUS_PROFILE},
+                    "method": "POST",
+                    "path": "/api/v2/executive-authorization/profile/board_resolution_secretary_certificate",
+                }
+            ],
+        )
+
+    def test_configurator_stops_when_current_profile_cannot_be_loaded(self):
+        _ApiHandler.response_status = 503
+        _ApiHandler.response_body = {"message": "Profile service unavailable"}
+
+        result = self.run_configurator("--dry-run")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unable to load the current profile", result.stderr)
+        self.assertEqual(
+            _ApiHandler.requests,
+            [
+                {
+                    "authorization": f"Bearer {TEST_TOKEN}",
+                    "body": None,
+                    "method": "GET",
+                    "path": "/api/v2/executive-authorization/profile/board_resolution_secretary_certificate",
+                }
+            ],
+        )
+
     def test_http_error_is_nonzero_and_redacts_token(self):
         _ApiHandler.response_status = 422
         _ApiHandler.response_body = {"message": f"Token {TEST_TOKEN} was rejected"}
@@ -321,6 +543,16 @@ class BoardAuthorizationClientTest(unittest.TestCase):
         self.assertIn("approvalRequiredCount", reference)
         self.assertIn("quorumRequiredCount", reference)
         self.assertIn("secretaryDirectorIndex", reference)
+
+    def test_skill_documents_interactive_profile_configuration(self):
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        reference = API_REFERENCE_PATH.read_text(encoding="utf-8")
+
+        for document in [skill, reference]:
+            self.assertIn("configure_board_profile.sh", document)
+            self.assertIn("--dry-run", document)
+            self.assertIn("SAVE", document)
+            self.assertIn("does not create or send an envelope", document)
 
 
 if __name__ == "__main__":
