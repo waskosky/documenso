@@ -4,9 +4,19 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT_PATH="${SCRIPT_DIR}/board_authorization.py"
+PROMPT_HELPERS_PATH="${SCRIPT_DIR}/board_authorization_prompts.sh"
+
+[[ -f "$PROMPT_HELPERS_PATH" ]] || {
+  printf 'Error: Board Authorization prompt helpers not found: %s\n' "$PROMPT_HELPERS_PATH" >&2
+  exit 1
+}
+
+# shellcheck source=board_authorization_prompts.sh
+source "$PROMPT_HELPERS_PATH"
 
 dry_run=false
 blank_profile=false
+PROFILE_EOF_MESSAGE='Input ended before setup was complete; no changes were saved.'
 
 usage() {
   cat <<'EOF'
@@ -21,14 +31,8 @@ Options:
 EOF
 }
 
-fail() {
-  printf 'Error: %s\n' "$1" >&2
-  exit 1
-}
-
-cancel() {
-  printf '\nCancelled; no changes were saved.\n' >&2
-  exit 130
+cancel_profile_setup() {
+  board_cancel 'Cancelled; no changes were saved.'
 }
 
 save_interrupted() {
@@ -36,123 +40,16 @@ save_interrupted() {
   exit 130
 }
 
-require_command() {
-  command -v "$1" >/dev/null 2>&1 || fail "Required command not found: $1"
-}
-
-trim_value() {
-  local value="$1"
-
-  value="${value#"${value%%[![:space:]]*}"}"
-  value="${value%"${value##*[![:space:]]}"}"
-  printf '%s' "$value"
-}
-
 prompt_required() {
-  local destination="$1"
-  local label="$2"
-  local default_value="$3"
-  local input_value
-
-  while true; do
-    if [[ -n "$default_value" ]]; then
-      printf '%s [%s]: ' "$label" "$default_value" >&2
-    else
-      printf '%s: ' "$label" >&2
-    fi
-
-    if ! IFS= read -r input_value; then
-      fail "Input ended before setup was complete; no changes were saved."
-    fi
-
-    input_value="$(trim_value "${input_value:-$default_value}")"
-
-    if [[ -n "$input_value" ]]; then
-      printf -v "$destination" '%s' "$input_value"
-      return
-    fi
-
-    printf 'A value is required.\n' >&2
-  done
+  board_prompt_required "$1" "$2" "$3" "$PROFILE_EOF_MESSAGE"
 }
 
 prompt_email() {
-  local destination="$1"
-  local label="$2"
-  local default_value="$3"
-  local email_value=''
-
-  while true; do
-    prompt_required email_value "$label" "$default_value"
-
-    if [[ "$email_value" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; then
-      printf -v "$destination" '%s' "$email_value"
-      return
-    fi
-
-    printf 'Enter a valid email address.\n' >&2
-  done
+  board_prompt_email "$1" "$2" "$3" "$PROFILE_EOF_MESSAGE"
 }
 
 prompt_choice() {
-  local destination="$1"
-  local label="$2"
-  local default_value="$3"
-  shift 3
-
-  local options=("$@")
-  local option
-  local option_index
-  local option_label
-  local option_value
-  local default_index=""
-  local default_label=""
-  local answer
-  local choice_number
-
-  while true; do
-    printf '%s\n' "$label" >&2
-
-    for option_index in "${!options[@]}"; do
-      option="${options[$option_index]}"
-      option_value="${option%%=*}"
-      option_label="${option#*=}"
-      printf '  %d. %s\n' "$((option_index + 1))" "$option_label" >&2
-
-      if [[ "$option_value" == "$default_value" ]]; then
-        default_index="$((option_index + 1))"
-        default_label="$option_label"
-      fi
-    done
-
-    if [[ -n "$default_index" ]]; then
-      printf 'Choice [%s, %s]: ' "$default_index" "$default_label" >&2
-    else
-      printf 'Choice: ' >&2
-    fi
-
-    if ! IFS= read -r answer; then
-      fail "Input ended before setup was complete; no changes were saved."
-    fi
-
-    answer="$(trim_value "$answer")"
-
-    if [[ -z "$answer" && -n "$default_index" ]]; then
-      answer="$default_index"
-    fi
-
-    if [[ "$answer" =~ ^[1-9][0-9]*$ && ${#answer} -le 9 ]]; then
-      choice_number="$((10#$answer))"
-
-      if ((choice_number <= ${#options[@]})); then
-        option="${options[$((choice_number - 1))]}"
-        printf -v "$destination" '%s' "${option%%=*}"
-        return
-      fi
-    fi
-
-    printf 'Choose a number from 1 through %d.\n' "${#options[@]}" >&2
-  done
+  board_prompt_choice "$1" "$2" "$3" "$PROFILE_EOF_MESSAGE" "${@:4}"
 }
 
 profile_default() {
@@ -178,18 +75,18 @@ for argument in "$@"; do
       ;;
     *)
       usage >&2
-      fail "Unknown option: $argument"
+      board_fail "Unknown option: $argument"
       ;;
   esac
 done
 
-require_command bash
-require_command jq
-require_command python3
+board_require_command bash
+board_require_command jq
+board_require_command python3
 
-[[ -f "$CLIENT_PATH" ]] || fail "Board Authorization client not found: $CLIENT_PATH"
+[[ -f "$CLIENT_PATH" ]] || board_fail "Board Authorization client not found: $CLIENT_PATH"
 
-trap cancel INT TERM
+trap cancel_profile_setup INT TERM
 
 current_profile='{}'
 
@@ -197,7 +94,7 @@ if [[ "$blank_profile" != true ]]; then
   printf 'Loading the current Board Authorization profile...\n' >&2
 
   if ! profile_response="$(python3 "$CLIENT_PATH" profile-get)"; then
-    fail "Unable to load the current profile. Use --blank only when you intentionally want to start over."
+    board_fail "Unable to load the current profile. Use --blank only when you intentionally want to start over."
   fi
 
   if jq -e '.exists == true and (.payloadDefaults | type == "object")' >/dev/null <<<"$profile_response"; then
@@ -292,7 +189,7 @@ normalized_email_3="${director_emails[2],,}"
 if [[ "$normalized_email_1" == "$normalized_email_2" ||
       "$normalized_email_1" == "$normalized_email_3" ||
       "$normalized_email_2" == "$normalized_email_3" ]]; then
-  fail 'Each director must have a distinct email address; no changes were saved.'
+  board_fail 'Each director must have a distinct email address; no changes were saved.'
 fi
 
 printf '\nExecution roles\n' >&2
@@ -377,7 +274,7 @@ jq . <<<"$profile_json" >&2
 printf '\nType SAVE to replace the stored Board Authorization profile: ' >&2
 
 if ! IFS= read -r confirmation; then
-  fail "Input ended before confirmation; no changes were saved."
+  board_fail "Input ended before confirmation; no changes were saved."
 fi
 
 if [[ "$confirmation" != 'SAVE' ]]; then

@@ -74,7 +74,16 @@ All names and addresses above are placeholders, never production defaults.
 
 ## Create Draft
 
-Create requests contain only variable decision values plus an idempotency key:
+For human-assisted decision entry, use the interactive questionnaire:
+
+```bash
+./scripts/create_board_authorization.sh --dry-run
+./scripts/create_board_authorization.sh
+```
+
+The script verifies the saved profile, prompts for every variable decision field, suggests an editable stable `externalId`, and previews the request. `--dry-run` performs no create call. A real run requires exact `CREATE`, creates the database authorization and review envelope, checks for three signers, nine fields, and valid integrity, and does not send an envelope or email.
+
+For non-interactive automation, submit the reviewed request object directly. Create requests contain only variable decision values plus an idempotency key:
 
 ```json
 {

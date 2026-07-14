@@ -26,7 +26,7 @@ Create a logged Documenso authorization draft from decision facts. The API creat
    When the profile disposition is `NOT_APPROVED`, `ratifyPriorActions` must be `false` and the delivery fields must be omitted.
 4. Resolve material ambiguity before creation. Do not invent decision terms, dates, reviewed materials, conditions, people, or email addresses.
 5. Build a stable, unique `externalId`. Prefer `board-YYYY-MM-DD-<short-subject>`; reuse the same value when retrying the same decision.
-6. Create the draft with `scripts/board_authorization.py create --input REQUEST.json` or pipe the JSON over standard input.
+6. For human-assisted decision entry, prefer `scripts/create_board_authorization.sh`: first run it with `--dry-run`, then rerun without that flag and type exact `CREATE` only after reviewing the request and stable `externalId`. The script creates a review-only authorization and envelope, validates the expected response contract, and does not send an envelope or email. For non-interactive automation, use `scripts/board_authorization.py create --input REQUEST.json` or pipe the reviewed JSON over standard input.
 7. Confirm the response has exactly three signers, nine actual fields, an envelope ID, `integrityValid: true`, and no `generationError` or `integrityError`. Give the user the authorization and editor URLs for review.
 
 Do not send, expose recipient signing URLs/tokens, or claim approval. Sending remains a separate, explicit human action after the generated READY envelope has been reviewed.

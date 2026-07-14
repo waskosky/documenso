@@ -13,10 +13,13 @@ from pathlib import Path
 
 SCRIPT_PATH = Path(__file__).with_name("board_authorization.py")
 CONFIGURE_SCRIPT_PATH = SCRIPT_PATH.with_name("configure_board_profile.sh")
+CREATE_SCRIPT_PATH = SCRIPT_PATH.with_name("create_board_authorization.sh")
 SKILL_PATH = SCRIPT_PATH.parents[1] / "SKILL.md"
 API_REFERENCE_PATH = SCRIPT_PATH.parents[1] / "references" / "api.md"
 TEST_TOKEN = "secret-test-token"
 EXPECTED_USER_AGENT = "DisclosureComics-BoardAuthorization-Agent/1.0 (+https://sign.disclosurecomics.com)"
+PROFILE_PATH = "/api/v2/executive-authorization/profile/board_resolution_secretary_certificate"
+CREATE_PATH = "/api/v2/executive-authorization/create"
 
 UNANIMOUS_PROFILE = {
     "actionMethod": "UNANIMOUS_WRITTEN_CONSENT",
@@ -78,6 +81,54 @@ MEETING_PROFILE = {
     "resolutionDisposition": "APPROVED_REQUIRED_VOTE",
 }
 
+NOT_APPROVED_PROFILE = {
+    **MEETING_PROFILE,
+    "directors": [
+        MEETING_PROFILE["directors"][0],
+        {
+            **MEETING_PROFILE["directors"][1],
+            "vote": "AGAINST",
+        },
+        MEETING_PROFILE["directors"][2],
+    ],
+    "resolutionDisposition": "NOT_APPROVED",
+}
+
+EXPECTED_CREATE_REQUEST = {
+    "externalId": "board-2026-07-14-approve-example-transaction",
+    "generateDocument": True,
+    "notes": "Prepared from the approved transaction package.",
+    "payload": {
+        "actionDate": "2026-07-14",
+        "actionTitle": "Approve Example Transaction",
+        "certificateDate": "2026-07-15",
+        "deliveryCondition": "Receipt of the countersigned agreement",
+        "deliveryRecipient": "Example Seller",
+        "materialsReviewed": [
+            "Example Purchase Agreement",
+            "https://example.test/financials",
+        ],
+        "matterDescription": "The Board considered the proposed acquisition.",
+        "ratifyPriorActions": True,
+        "specificAction": "the acquisition of Example Company",
+        "specificTerms": "on the terms in the reviewed purchase agreement",
+    },
+    "templateKey": "board_resolution_secretary_certificate",
+}
+
+VALID_CREATE_RESPONSE = {
+    "authorizationId": "auth_123",
+    "authorizationUrl": "https://sign.example.test/authorizations/auth_123",
+    "editorUrl": "https://sign.example.test/envelopes/envelope_123/edit",
+    "envelopeId": "envelope_123",
+    "fieldCount": 9,
+    "generationError": None,
+    "integrityError": None,
+    "integrityValid": True,
+    "signerCount": 3,
+    "status": "READY",
+}
+
 
 def _unanimous_answers(*, action_choices=None, second_email="two@example.test", confirmation=None):
     action_choices = action_choices or ["1"]
@@ -109,10 +160,53 @@ def _unanimous_answers(*, action_choices=None, second_email="two@example.test", 
     return "\n".join(answers) + "\n"
 
 
+def _create_answers(
+    *,
+    action_dates=None,
+    certificate_dates=None,
+    confirmation=None,
+    include_approval_questions=True,
+):
+    answers = [
+        *(action_dates or ["2026-07-14"]),
+        *(certificate_dates or ["2026-07-15"]),
+        "Approve Example Transaction",
+        "The Board considered the proposed acquisition.",
+        "Example Purchase Agreement",
+        "https://example.test/financials",
+        "",
+        "the acquisition of Example Company",
+        "on the terms in the reviewed purchase agreement",
+    ]
+
+    if include_approval_questions:
+        answers.extend(
+            [
+                "Example Seller",
+                "Receipt of the countersigned agreement",
+                "1",
+            ]
+        )
+
+    answers.extend(
+        [
+            "Prepared from the approved transaction package.",
+            "",
+        ]
+    )
+
+    if confirmation is not None:
+        answers.append(confirmation)
+
+    return "\n".join(answers) + "\n"
+
+
 class _ApiHandler(BaseHTTPRequestHandler):
     requests = []
     response_status = 200
     response_body = {"ok": True}
+    response_by_route = {}
+    status_by_route = {}
     response_headers = {}
     user_agents = []
 
@@ -140,8 +234,11 @@ class _ApiHandler(BaseHTTPRequestHandler):
         )
         self.__class__.user_agents.append(self.headers.get("User-Agent"))
 
-        encoded_response = json.dumps(self.__class__.response_body).encode("utf-8")
-        self.send_response(self.__class__.response_status)
+        route = (self.command, self.path)
+        response_body = self.__class__.response_by_route.get(route, self.__class__.response_body)
+        response_status = self.__class__.status_by_route.get(route, self.__class__.response_status)
+        encoded_response = json.dumps(response_body).encode("utf-8")
+        self.send_response(response_status)
         self.send_header("Content-Type", "application/json")
         for name, value in self.__class__.response_headers.items():
             self.send_header(name, value)
@@ -208,6 +305,8 @@ class BoardAuthorizationClientTest(unittest.TestCase):
         _ApiHandler.requests = []
         _ApiHandler.response_status = 200
         _ApiHandler.response_body = {"ok": True}
+        _ApiHandler.response_by_route = {}
+        _ApiHandler.status_by_route = {}
         _ApiHandler.response_headers = {}
         _ApiHandler.user_agents = []
         _RedirectTargetHandler.requests = []
@@ -250,6 +349,33 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             text=True,
             check=False,
         )
+
+    def run_creator(self, *arguments, input_text="", environment=None):
+        env = {
+            **os.environ,
+            "DISCLOSURE_SIGN_API_TOKEN": TEST_TOKEN,
+            "DISCLOSURE_SIGN_BASE_URL": self.base_url,
+        }
+        env.update(environment or {})
+
+        return subprocess.run(
+            ["bash", str(CREATE_SCRIPT_PATH), *arguments],
+            env=env,
+            input=input_text,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def set_profile_response(self, profile=UNANIMOUS_PROFILE, *, exists=True, needs_upgrade=False):
+        _ApiHandler.response_by_route[("GET", PROFILE_PATH)] = {
+            "currentTemplateVersion": 2,
+            "exists": exists,
+            "needsUpgrade": needs_upgrade,
+            "payloadDefaults": profile if exists else None,
+            "templateKey": "board_resolution_secretary_certificate",
+            "templateVersion": 1 if needs_upgrade else (2 if exists else None),
+        }
 
     def test_create_posts_request_and_prints_response(self):
         payload = {
@@ -479,6 +605,190 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             ],
         )
 
+    def test_creator_dry_run_builds_decision_request_without_create_post(self):
+        self.set_profile_response()
+
+        result = self.run_creator("--dry-run", input_text=_create_answers())
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), EXPECTED_CREATE_REQUEST)
+        self.assertEqual(
+            _ApiHandler.requests,
+            [
+                {
+                    "authorization": f"Bearer {TEST_TOKEN}",
+                    "body": None,
+                    "method": "GET",
+                    "path": PROFILE_PATH,
+                }
+            ],
+        )
+
+    def test_creator_posts_only_after_exact_create_confirmation(self):
+        self.set_profile_response()
+        _ApiHandler.response_by_route[("POST", CREATE_PATH)] = VALID_CREATE_RESPONSE
+
+        result = self.run_creator(input_text=_create_answers(confirmation="CREATE"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), VALID_CREATE_RESPONSE)
+        self.assertEqual(
+            _ApiHandler.requests,
+            [
+                {
+                    "authorization": f"Bearer {TEST_TOKEN}",
+                    "body": None,
+                    "method": "GET",
+                    "path": PROFILE_PATH,
+                },
+                {
+                    "authorization": f"Bearer {TEST_TOKEN}",
+                    "body": EXPECTED_CREATE_REQUEST,
+                    "method": "POST",
+                    "path": CREATE_PATH,
+                },
+            ],
+        )
+
+    def test_creator_cancels_without_create_post(self):
+        self.set_profile_response()
+
+        result = self.run_creator(input_text=_create_answers(confirmation="CANCEL"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("no authorization was created", result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(len(_ApiHandler.requests), 1)
+        self.assertEqual(_ApiHandler.requests[0]["method"], "GET")
+
+    def test_creator_stops_when_profile_is_missing(self):
+        self.set_profile_response(exists=False)
+
+        result = self.run_creator("--dry-run")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("profile is not configured", result.stderr)
+        self.assertEqual(len(_ApiHandler.requests), 1)
+        self.assertEqual(_ApiHandler.requests[0]["method"], "GET")
+
+    def test_creator_stops_when_profile_needs_upgrade(self):
+        self.set_profile_response(needs_upgrade=True)
+
+        result = self.run_creator("--dry-run")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("profile needs an upgrade", result.stderr)
+        self.assertEqual(len(_ApiHandler.requests), 1)
+        self.assertEqual(_ApiHandler.requests[0]["method"], "GET")
+
+    def test_creator_reprompts_for_invalid_and_out_of_order_dates(self):
+        self.set_profile_response()
+
+        result = self.run_creator(
+            "--dry-run",
+            input_text=_create_answers(
+                action_dates=["2026-02-30", "2026-07-14"],
+                certificate_dates=["2026-07-13", "2026-07-15"],
+            ),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("valid date", result.stderr)
+        self.assertIn("cannot precede", result.stderr)
+        self.assertEqual(json.loads(result.stdout), EXPECTED_CREATE_REQUEST)
+        self.assertEqual(len(_ApiHandler.requests), 1)
+
+    def test_creator_forces_not_approved_decision_restrictions(self):
+        self.set_profile_response(NOT_APPROVED_PROFILE)
+
+        result = self.run_creator(
+            "--dry-run",
+            input_text=_create_answers(include_approval_questions=False),
+        )
+
+        expected_request = json.loads(json.dumps(EXPECTED_CREATE_REQUEST))
+        expected_request["payload"].pop("deliveryCondition")
+        expected_request["payload"].pop("deliveryRecipient")
+        expected_request["payload"]["ratifyPriorActions"] = False
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), expected_request)
+        self.assertIn("cannot authorize delivery or ratify prior actions", result.stderr)
+        self.assertEqual(len(_ApiHandler.requests), 1)
+
+    def test_creator_omits_unselected_optional_values(self):
+        self.set_profile_response()
+        answers = "\n".join(
+            [
+                "2026-07-14",
+                "2026-07-15",
+                "Approve Example Transaction",
+                "The Board considered the proposed acquisition.",
+                "Example Purchase Agreement",
+                "",
+                "the acquisition of Example Company",
+                "",
+                "",
+                "2",
+                "",
+                "",
+            ]
+        ) + "\n"
+
+        result = self.run_creator("--dry-run", input_text=answers)
+
+        expected_request = {
+            "externalId": "board-2026-07-14-approve-example-transaction",
+            "generateDocument": True,
+            "payload": {
+                "actionDate": "2026-07-14",
+                "actionTitle": "Approve Example Transaction",
+                "certificateDate": "2026-07-15",
+                "materialsReviewed": ["Example Purchase Agreement"],
+                "matterDescription": "The Board considered the proposed acquisition.",
+                "ratifyPriorActions": False,
+                "specificAction": "the acquisition of Example Company",
+            },
+            "templateKey": "board_resolution_secretary_certificate",
+        }
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), expected_request)
+        self.assertEqual(len(_ApiHandler.requests), 1)
+
+    def test_creator_returns_nonzero_and_preserves_bad_create_response(self):
+        self.set_profile_response()
+        invalid_response = {
+            **VALID_CREATE_RESPONSE,
+            "fieldCount": 8,
+            "integrityError": "Envelope field count differs from the authorization record.",
+            "integrityValid": False,
+        }
+        _ApiHandler.response_by_route[("POST", CREATE_PATH)] = invalid_response
+
+        result = self.run_creator(input_text=_create_answers(confirmation="CREATE"))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotEqual(result.stdout, "", result.stderr)
+        self.assertEqual(json.loads(result.stdout), invalid_response)
+        self.assertIn("response contract", result.stderr)
+        self.assertIn(invalid_response["authorizationUrl"], result.stderr)
+        self.assertEqual(len(_ApiHandler.requests), 2)
+
+    def test_creator_rejects_a_non_ready_create_response(self):
+        self.set_profile_response()
+        non_ready_response = {
+            **VALID_CREATE_RESPONSE,
+            "status": "DRAFT",
+        }
+        _ApiHandler.response_by_route[("POST", CREATE_PATH)] = non_ready_response
+
+        result = self.run_creator(input_text=_create_answers(confirmation="CREATE"))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout), non_ready_response)
+        self.assertIn("response contract", result.stderr)
+
     def test_http_error_is_nonzero_and_redacts_token(self):
         _ApiHandler.response_status = 422
         _ApiHandler.response_body = {"message": f"Token {TEST_TOKEN} was rejected"}
@@ -553,6 +863,17 @@ class BoardAuthorizationClientTest(unittest.TestCase):
             self.assertIn("--dry-run", document)
             self.assertIn("SAVE", document)
             self.assertIn("does not create or send an envelope", document)
+
+    def test_skill_documents_interactive_authorization_creation(self):
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        reference = API_REFERENCE_PATH.read_text(encoding="utf-8")
+
+        for document in [skill, reference]:
+            self.assertIn("create_board_authorization.sh", document)
+            self.assertIn("--dry-run", document)
+            self.assertIn("CREATE", document)
+            self.assertIn("externalId", document)
+            self.assertIn("does not send", document)
 
 
 if __name__ == "__main__":
