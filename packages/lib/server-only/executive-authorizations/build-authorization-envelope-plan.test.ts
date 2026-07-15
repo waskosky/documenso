@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 
 import { FieldType, RecipientRole } from '@prisma/client';
 
-import { buildAuthorizationEnvelopePlan } from './build-authorization-envelope-plan';
+import {
+  buildAuthorizationEnvelopeExternalId,
+  buildAuthorizationEnvelopePlan,
+} from './build-authorization-envelope-plan';
+
+assert.equal(buildAuthorizationEnvelopeExternalId('auth_123'), 'executive_authorization:auth_123');
 
 const plan = buildAuthorizationEnvelopePlan({
   authorizationId: 'auth_123',

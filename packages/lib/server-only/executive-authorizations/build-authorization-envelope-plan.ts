@@ -55,6 +55,9 @@ export type AuthorizationEnvelopePlan = {
 
 const MAX_FILE_NAME_LENGTH = 90;
 
+export const buildAuthorizationEnvelopeExternalId = (authorizationId: string) =>
+  `executive_authorization:${authorizationId}`;
+
 const slugifyFileName = (title: string) => {
   const slug = title
     .toLowerCase()
@@ -159,7 +162,7 @@ export const buildAuthorizationEnvelopePlan = ({
     emailMessage:
       'Please review and sign this Board authorization. The signed document and audit trail will remain available in Documenso.',
     emailSubject: `Signature requested: ${title}`,
-    externalId: `executive_authorization:${authorizationId}`,
+    externalId: buildAuthorizationEnvelopeExternalId(authorizationId),
     fileName: slugifyFileName(title),
     recipients: recipients.map((signer, index) => ({
       email: signer.email,
