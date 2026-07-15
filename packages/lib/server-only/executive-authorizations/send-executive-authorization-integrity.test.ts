@@ -27,7 +27,7 @@ assert.match(source, /authorization\.status !== ExecutiveAuthorizationStatus\.RE
 assert.match(source, /!authorization\.envelopeId/);
 assert.match(
   detailRouteSource,
-  /const canSend =\s*canManage &&\s*authorization\.status === ExecutiveAuthorizationStatus\.READY &&\s*Boolean\(authorization\.envelope\)/s,
+  /const canSend =\s*canManage &&\s*creationState !== 'review' &&\s*authorization\.status === ExecutiveAuthorizationStatus\.READY &&\s*Boolean\(authorization\.envelope\)/s,
 );
 
 console.log('executive authorization send integrity wiring tests passed');
