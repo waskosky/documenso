@@ -85,6 +85,11 @@ assert.doesNotMatch(
   /sendExecutiveAuthorization|send-executive-authorization/,
   'creating a review draft must never send email',
 );
+assert.doesNotMatch(
+  newAuthorizationRoute,
+  /defaultDate|new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/,
+  'legal action and certificate dates must be entered explicitly instead of inferred from the server timezone',
+);
 
 const authorizationDetailRoute = readFileSync(path.join(routeDirectory, 'authorizations.$id._index.tsx'), 'utf8');
 
