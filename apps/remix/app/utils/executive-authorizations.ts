@@ -64,6 +64,34 @@ const buildBoardDirectorsFromFormData = (
 
 const getInteger = (formData: FormData, key: string) => Number.parseInt(getString(formData, key), 10);
 
+export const buildBoardAuthorizationDecisionInputFromFormData = (
+  formData: FormData,
+  resolutionDisposition: BoardResolutionCertificatePayload['resolutionDisposition'],
+) => {
+  const isNotApproved = resolutionDisposition === 'NOT_APPROVED';
+
+  return {
+    externalId: getString(formData, 'externalId'),
+    notes: getString(formData, 'notes'),
+    payload: {
+      actionDate: getString(formData, 'actionDate'),
+      actionTitle: getString(formData, 'actionTitle'),
+      certificateDate: getString(formData, 'certificateDate'),
+      ...(!isNotApproved
+        ? {
+            deliveryCondition: getString(formData, 'deliveryCondition') || undefined,
+            deliveryRecipient: getString(formData, 'deliveryRecipient') || undefined,
+          }
+        : {}),
+      materialsReviewed: getList(formData, 'materialsReviewed'),
+      matterDescription: getString(formData, 'matterDescription'),
+      ratifyPriorActions: isNotApproved ? false : formData.has('ratifyPriorActions'),
+      specificAction: getString(formData, 'specificAction'),
+      specificTerms: getString(formData, 'specificTerms'),
+    },
+  };
+};
+
 export const buildBoardAuthorizationProfileInputFromFormData = (
   formData: FormData,
   signerRoles: readonly AuthorizationTemplateSignerRole[],
