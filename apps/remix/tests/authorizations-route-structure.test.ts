@@ -36,3 +36,52 @@ assert.equal(
   2,
   'new authorization loader and action must both require team-management permission',
 );
+assert.match(
+  newAuthorizationRoute,
+  /createProfiledExecutiveAuthorization/,
+  'new authorizations should merge saved defaults and create the signing envelope through the profiled service',
+);
+assert.match(
+  newAuthorizationRoute,
+  /buildBoardAuthorizationDecisionInputFromFormData/,
+  'new authorizations should accept only decision-specific form fields',
+);
+assert.match(
+  newAuthorizationRoute,
+  /AuthorizationProfileSummary/,
+  'new authorizations should show managers the saved defaults that will be applied',
+);
+assert.match(
+  newAuthorizationRoute,
+  /BoardAuthorizationDecisionForm/,
+  'new authorizations should render the focused decision form',
+);
+assert.match(newAuthorizationRoute, /extractRequestMetadata/, 'new authorization generation should be audited');
+assert.match(newAuthorizationRoute, /randomUUID/, 'new authorization submissions should have an idempotency key');
+assert.match(
+  newAuthorizationRoute,
+  /expectedRecipientCount = 3/,
+  'new authorization generation should require exactly three recipients',
+);
+assert.match(
+  newAuthorizationRoute,
+  /expectedFieldCount = 9/,
+  'new authorization generation should require exactly nine signing fields',
+);
+assert.match(newAuthorizationRoute, /recipientCount === expectedRecipientCount/);
+assert.match(newAuthorizationRoute, /fieldCount === expectedFieldCount/);
+assert.doesNotMatch(
+  newAuthorizationRoute,
+  /create-executive-authorization'/,
+  'the web intake must not bypass the saved authorization profile',
+);
+assert.doesNotMatch(
+  newAuthorizationRoute,
+  /BoardAuthorizationForm/,
+  'the web intake must not post profile-backed fields from the legacy full form',
+);
+assert.doesNotMatch(
+  newAuthorizationRoute,
+  /sendExecutiveAuthorization|send-executive-authorization/,
+  'creating a review draft must never send email',
+);
