@@ -4,6 +4,7 @@ import { prisma } from '@documenso/prisma';
 import {
   DocumentDistributionMethod,
   DocumentSigningOrder,
+  type DocumentStatus,
   EnvelopeType,
   ExecutiveAuthorizationStatus,
   FieldType,
@@ -11,18 +12,63 @@ import {
 
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { createEnvelope } from '../envelope/create-envelope';
+import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
 import { withAuthorizationEnvelopeLock } from './authorization-envelope-lock';
-import { buildAuthorizationEnvelopePlan } from './build-authorization-envelope-plan';
+import {
+  buildAuthorizationEnvelopeExternalId,
+  buildAuthorizationEnvelopePlan,
+} from './build-authorization-envelope-plan';
 import { generateAuthorizationPdf } from './generate-authorization-pdf';
 import { normalizeAuthorizationSigners } from './stored-signers';
-import { buildAuthorizationStatusUpdate } from './sync-authorization-status';
-import type { AuthorizationTemplateKey } from './types';
+import { type AuthorizationStatusRecipient, buildAuthorizationStatusUpdate } from './sync-authorization-status';
+import type { AuthorizationSigner, AuthorizationTemplateKey } from './types';
 
 type CreateAuthorizationSigningEnvelopeOptions = {
   id: string;
   requestMetadata: ApiRequestMetadata;
   teamId: number;
   userId: number;
+};
+
+const linkAuthorizationSigningEnvelope = async ({
+  authorizationId,
+  documentDataId,
+  envelope,
+  signers,
+}: {
+  authorizationId: string;
+  documentDataId: string;
+  envelope: {
+    completedAt: Date | null;
+    id: string;
+    recipients: AuthorizationStatusRecipient[];
+    status: DocumentStatus;
+  };
+  signers: AuthorizationSigner[];
+}) => {
+  const statusUpdate = buildAuthorizationStatusUpdate({
+    completedAt: envelope.completedAt,
+    envelopeStatus: envelope.status,
+    existingSigners: signers,
+    recipients: envelope.recipients,
+  });
+
+  await prisma.executiveAuthorization.update({
+    data: {
+      envelopeId: envelope.id,
+      generatedDocumentDataId: documentDataId,
+      signers: statusUpdate.signers,
+      status:
+        statusUpdate.status === ExecutiveAuthorizationStatus.READY
+          ? ExecutiveAuthorizationStatus.READY
+          : statusUpdate.status,
+    },
+    where: {
+      id: authorizationId,
+    },
+  });
+
+  return envelope;
 };
 
 const createAuthorizationSigningEnvelopeUnlocked = async ({
@@ -62,6 +108,57 @@ const createAuthorizationSigningEnvelopeUnlocked = async ({
   }
 
   const signers = normalizeAuthorizationSigners(authorization.signers);
+  const orphanedEnvelope = await prisma.envelope.findFirst({
+    include: {
+      envelopeItems: true,
+      recipients: {
+        include: {
+          fields: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+    where: {
+      deletedAt: null,
+      executiveAuthorization: {
+        is: null,
+      },
+      externalId: buildAuthorizationEnvelopeExternalId(authorization.id),
+      teamId,
+      type: EnvelopeType.DOCUMENT,
+    },
+  });
+
+  if (orphanedEnvelope) {
+    const recoveredDocumentDataId = orphanedEnvelope.envelopeItems[0]?.documentDataId ?? null;
+
+    await assertAuthorizationEnvelopeIntegrity({
+      authorization: {
+        generatedDocumentDataId: recoveredDocumentDataId,
+        id: authorization.id,
+        renderedMarkdown: authorization.renderedMarkdown,
+        signers,
+        templateKey: authorization.templateKey as AuthorizationTemplateKey,
+        templateVersion: authorization.templateVersion,
+        title: authorization.title,
+      },
+      envelope: orphanedEnvelope,
+    });
+
+    if (!recoveredDocumentDataId) {
+      throw new Error('Recovered authorization envelope is missing its document data.');
+    }
+
+    return await linkAuthorizationSigningEnvelope({
+      authorizationId: authorization.id,
+      documentDataId: recoveredDocumentDataId,
+      envelope: orphanedEnvelope,
+      signers,
+    });
+  }
+
   const pdf = await generateAuthorizationPdf({
     renderedMarkdown: authorization.renderedMarkdown,
     signers,
@@ -143,29 +240,12 @@ const createAuthorizationSigningEnvelopeUnlocked = async ({
     userId,
   });
 
-  const statusUpdate = buildAuthorizationStatusUpdate({
-    completedAt: envelope.completedAt,
-    envelopeStatus: envelope.status,
-    existingSigners: signers,
-    recipients: envelope.recipients,
+  return await linkAuthorizationSigningEnvelope({
+    authorizationId: authorization.id,
+    documentDataId: documentData.id,
+    envelope,
+    signers,
   });
-
-  await prisma.executiveAuthorization.update({
-    data: {
-      envelopeId: envelope.id,
-      generatedDocumentDataId: documentData.id,
-      signers: statusUpdate.signers,
-      status:
-        statusUpdate.status === ExecutiveAuthorizationStatus.READY
-          ? ExecutiveAuthorizationStatus.READY
-          : statusUpdate.status,
-    },
-    where: {
-      id: authorization.id,
-    },
-  });
-
-  return envelope;
 };
 
 export const createAuthorizationSigningEnvelope = async (options: CreateAuthorizationSigningEnvelopeOptions) =>
