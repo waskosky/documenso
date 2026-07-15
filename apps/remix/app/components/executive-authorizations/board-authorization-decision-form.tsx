@@ -24,10 +24,12 @@ type BoardAuthorizationDecisionDefaults = Partial<
 export const BoardAuthorizationDecisionForm = ({
   defaultValues = {},
   externalId,
+  profileRevision,
   resolutionDisposition,
 }: {
   defaultValues?: BoardAuthorizationDecisionDefaults;
   externalId: string;
+  profileRevision: string;
   resolutionDisposition: BoardResolutionCertificatePayload['resolutionDisposition'];
 }) => {
   const isNotApproved = resolutionDisposition === 'NOT_APPROVED';
@@ -35,6 +37,7 @@ export const BoardAuthorizationDecisionForm = ({
   return (
     <>
       <input name="externalId" type="hidden" value={externalId} />
+      <input name="profileRevision" type="hidden" value={profileRevision} />
 
       <section aria-labelledby="decision-record-heading" className="border-t pt-6">
         <h2 className="font-semibold text-lg" id="decision-record-heading">

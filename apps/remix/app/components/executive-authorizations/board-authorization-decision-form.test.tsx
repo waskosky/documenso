@@ -12,12 +12,14 @@ const approvedHtml = renderToStaticMarkup(
       ratifyPriorActions: true,
     }}
     externalId="board-web-test"
+    profileRevision="profile-revision-test"
     resolutionDisposition="APPROVED_UNANIMOUSLY"
   />,
 );
 
 for (const name of [
   'externalId',
+  'profileRevision',
   'actionDate',
   'certificateDate',
   'actionTitle',
@@ -51,11 +53,16 @@ for (const name of [
 }
 
 assert.match(approvedHtml, /value="board-web-test"/);
+assert.match(approvedHtml, /value="profile-revision-test"/);
 assert.match(approvedHtml, /Board memorandum\nDraft agreement/);
 assert.match(approvedHtml, /name="ratifyPriorActions"[^>]*checked=""/);
 
 const rejectedHtml = renderToStaticMarkup(
-  <BoardAuthorizationDecisionForm externalId="board-web-rejected" resolutionDisposition="NOT_APPROVED" />,
+  <BoardAuthorizationDecisionForm
+    externalId="board-web-rejected"
+    profileRevision="profile-revision-rejected"
+    resolutionDisposition="NOT_APPROVED"
+  />,
 );
 
 assert.doesNotMatch(rejectedHtml, /name="deliveryRecipient"/);

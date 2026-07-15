@@ -66,7 +66,7 @@ const getInteger = (formData: FormData, key: string) => Number.parseInt(getStrin
 
 export const buildBoardAuthorizationDecisionInputFromFormData = (
   formData: FormData,
-  resolutionDisposition: BoardResolutionCertificatePayload['resolutionDisposition'],
+  resolutionDisposition?: BoardResolutionCertificatePayload['resolutionDisposition'],
 ) => {
   const isNotApproved = resolutionDisposition === 'NOT_APPROVED';
 
@@ -89,6 +89,7 @@ export const buildBoardAuthorizationDecisionInputFromFormData = (
       specificAction: getString(formData, 'specificAction'),
       specificTerms: getString(formData, 'specificTerms'),
     },
+    profileRevision: getString(formData, 'profileRevision'),
   };
 };
 

@@ -4,6 +4,7 @@ import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { createProfiledExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/create-profiled-executive-authorization';
 import { getExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization-profile';
 import { parseAuthorizationTemplateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
+import { buildAuthorizationProfileRevision } from '@documenso/lib/server-only/executive-authorizations/profile-revision';
 import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
 import { type ApiRequestMetadata, extractRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
@@ -61,18 +62,20 @@ const getProfileState = async (teamId: number) => {
     templateKey,
   });
   const profileNeedsUpgrade = Boolean(profile && profile.templateVersion !== template.version);
+  const profileDefaults =
+    profile?.payloadDefaults && !profileNeedsUpgrade
+      ? parseAuthorizationTemplateProfilePayload({
+          payload: profile.payloadDefaults,
+          templateKey,
+          templateVersion: template.version,
+        })
+      : null;
 
   return {
-    profileDefaults:
-      profile?.payloadDefaults && !profileNeedsUpgrade
-        ? parseAuthorizationTemplateProfilePayload({
-            payload: profile.payloadDefaults,
-            templateKey,
-            templateVersion: template.version,
-          })
-        : null,
+    profileDefaults,
     profileExists: Boolean(profile?.payloadDefaults),
     profileNeedsUpgrade,
+    profileRevision: profileDefaults && profile ? buildAuthorizationProfileRevision(profile) : null,
   };
 };
 
@@ -102,22 +105,12 @@ export async function action({ params, request }: Route.ActionArgs) {
   const externalId = String(formData.get('externalId') ?? '').trim();
 
   try {
-    const profileState = await getProfileState(team.id);
-
-    if (!profileState.profileDefaults) {
-      throw new Error(
-        profileState.profileNeedsUpgrade
-          ? 'Authorization defaults must be reviewed before creating a new record.'
-          : 'Authorization defaults must be configured before creating a new record.',
-      );
-    }
-
-    const input = buildBoardAuthorizationDecisionInputFromFormData(
-      formData,
-      profileState.profileDefaults.resolutionDisposition,
-    );
+    const input = buildBoardAuthorizationDecisionInputFromFormData(formData);
     const result = await createProfiledExecutiveAuthorization({
-      ...input,
+      expectedProfileRevision: input.profileRevision,
+      externalId: input.externalId,
+      notes: input.notes,
+      payload: input.payload,
       requestMetadata: buildRequestMetadata({ request, user }),
       teamId: team.id,
       templateKey,
@@ -210,7 +203,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
         </Alert>
       )}
 
-      {loaderData.profileDefaults && (
+      {loaderData.profileDefaults && loaderData.profileRevision && (
         <>
           <AuthorizationProfileSummary
             actions={
@@ -227,6 +220,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
           <Form className="mt-8" method="post">
             <BoardAuthorizationDecisionForm
               externalId={externalId}
+              profileRevision={loaderData.profileRevision}
               resolutionDisposition={loaderData.profileDefaults.resolutionDisposition}
             />
 

@@ -55,6 +55,13 @@ assert.match(
 );
 assert.match(newAuthorizationRoute, /extractRequestMetadata/, 'new authorization generation should be audited');
 assert.match(newAuthorizationRoute, /randomUUID/, 'new authorization submissions should have an idempotency key');
+assert.match(newAuthorizationRoute, /buildAuthorizationProfileRevision/);
+assert.match(newAuthorizationRoute, /expectedProfileRevision:\s*input\.profileRevision/);
+assert.equal(
+  newAuthorizationRoute.match(/await getProfileState\(team\.id\)/g)?.length,
+  1,
+  'only the loader should read the profile directly; creation owns the action-time revision check',
+);
 assert.match(
   newAuthorizationRoute,
   /expectedRecipientCount = 3/,
@@ -106,4 +113,9 @@ assert.match(
   authorizationDetailRoute,
   /No email was sent/,
   'creation feedback must distinguish preparing a review draft from sending it',
+);
+assert.match(
+  authorizationDetailRoute,
+  /creationState !== 'review'/,
+  'a warning-state envelope must not present an enabled send action',
 );
