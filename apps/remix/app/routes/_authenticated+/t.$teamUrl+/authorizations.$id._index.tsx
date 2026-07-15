@@ -70,6 +70,7 @@ const buildRequestMetadata = ({
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const { user } = await getSession(request);
+  const created = new URL(request.url).searchParams.get('created');
   const team = await getTeamByUrl({
     teamUrl: params.teamUrl,
     userId: user.id,
@@ -97,6 +98,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       createdAtDisplay: formatAuthorizationDateTime(authorization.createdAt.toISOString()),
       createdByUser: authorization.createdByUser,
       envelope: authorization.envelope,
+      externalId: authorization.externalId,
       id: authorization.id,
       notes: authorization.notes,
       renderedMarkdown: authorization.renderedMarkdown,
@@ -113,6 +115,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     },
     authorizationsPath: formatAuthorizationsPath(team.url),
     canManage: canExecuteTeamAction('MANAGE_TEAM', team.currentTeamRole),
+    creationState: created === 'ready' || created === 'review' ? created : null,
     documentsPath: formatDocumentsPath(team.url),
   };
 }
@@ -172,7 +175,7 @@ export async function action({ params, request }: Route.ActionArgs) {
 
 export default function AuthorizationDetailPage({ loaderData }: Route.ComponentProps) {
   const actionData = useActionData<typeof action>();
-  const { authorization, authorizationsPath, canManage, documentsPath } = loaderData;
+  const { authorization, authorizationsPath, canManage, creationState, documentsPath } = loaderData;
   const signers = authorization.signers;
   const canEdit = canManage && authorization.status === ExecutiveAuthorizationStatus.DRAFT;
   const canGenerate =
@@ -184,6 +187,11 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
     authorization.status === ExecutiveAuthorizationStatus.READY &&
     Boolean(authorization.envelope);
   const canRefresh = canManage && Boolean(authorization.envelope);
+  const showCreatedReady =
+    creationState === 'ready' &&
+    authorization.status === ExecutiveAuthorizationStatus.READY &&
+    Boolean(authorization.envelope);
+  const showCreatedReview = Boolean(creationState) && !showCreatedReady;
 
   return (
     <div className="mx-auto w-full max-w-screen-xl px-4 md:px-8">
@@ -258,6 +266,28 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
         </div>
       </div>
 
+      {showCreatedReady && (
+        <Alert className="mt-6">
+          <AlertTitle>
+            <Trans>Review draft created</Trans>
+          </AlertTitle>
+          <AlertDescription>
+            <Trans>The authorization record and signing envelope are ready for review. No email was sent.</Trans>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {showCreatedReview && (
+        <Alert className="mt-6" variant="warning">
+          <AlertTitle>
+            <Trans>Authorization saved; document needs review</Trans>
+          </AlertTitle>
+          <AlertDescription>
+            <Trans>The durable record was created, but its signing envelope needs attention. No email was sent.</Trans>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {actionData?.error && (
         <Alert variant="destructive" className="mt-6">
           <AlertTitle>
@@ -283,6 +313,7 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
               <Trans>Record details</Trans>
             </h2>
             <dl className="mt-4 space-y-3 text-sm">
+              <Detail label="Reference" value={authorization.externalId ?? 'Not set'} />
               <Detail label="Template" value={authorization.templateKey} />
               <Detail label="Template version" value={String(authorization.templateVersion)} />
               <Detail label="Created" value={authorization.createdAtDisplay ?? 'Not set'} />

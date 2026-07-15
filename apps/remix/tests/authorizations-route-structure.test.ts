@@ -85,3 +85,23 @@ assert.doesNotMatch(
   /sendExecutiveAuthorization|send-executive-authorization/,
   'creating a review draft must never send email',
 );
+
+const authorizationDetailRoute = readFileSync(path.join(routeDirectory, 'authorizations.$id._index.tsx'), 'utf8');
+
+assert.match(
+  authorizationDetailRoute,
+  /externalId: authorization\.externalId/,
+  'the review page should expose the durable authorization reference',
+);
+assert.match(
+  authorizationDetailRoute,
+  /searchParams\.get\('created'\)/,
+  'the review page should parse the constrained creation result state',
+);
+assert.match(authorizationDetailRoute, /Review draft created/);
+assert.match(authorizationDetailRoute, /Authorization saved; document needs review/);
+assert.match(
+  authorizationDetailRoute,
+  /No email was sent/,
+  'creation feedback must distinguish preparing a review draft from sending it',
+);
