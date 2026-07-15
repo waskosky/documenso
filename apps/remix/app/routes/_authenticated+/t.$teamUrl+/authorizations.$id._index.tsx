@@ -255,22 +255,18 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
 
       {showCreatedReady && (
         <Alert className="mt-6">
-          <AlertTitle>
-            <Trans>Review draft created</Trans>
-          </AlertTitle>
+          <AlertTitle>Review draft created</AlertTitle>
           <AlertDescription>
-            <Trans>The authorization record and signing envelope are ready for review. No email was sent.</Trans>
+            The authorization record and signing envelope are ready for review. No email was sent.
           </AlertDescription>
         </Alert>
       )}
 
       {showCreatedReview && (
         <Alert className="mt-6" variant="warning">
-          <AlertTitle>
-            <Trans>Authorization saved; document needs review</Trans>
-          </AlertTitle>
+          <AlertTitle>Authorization saved; document needs review</AlertTitle>
           <AlertDescription>
-            <Trans>The durable record was created, but its signing envelope needs attention. No email was sent.</Trans>
+            The durable record was created, but its signing envelope needs attention. No email was sent.
           </AlertDescription>
         </Alert>
       )}

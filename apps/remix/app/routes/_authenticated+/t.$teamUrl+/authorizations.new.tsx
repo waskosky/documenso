@@ -161,9 +161,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
         <h1 className="font-semibold text-3xl">
           <Trans>New board authorization</Trans>
         </h1>
-        <p className="mt-2 text-muted-foreground text-sm">
-          <Trans>Board resolution and secretary certificate</Trans>
-        </p>
+        <p className="mt-2 text-muted-foreground text-sm">Board resolution and secretary certificate</p>
       </div>
 
       {actionData?.error && (
@@ -177,13 +175,11 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
 
       {!loaderData.profileExists && (
         <Alert className="mb-6">
-          <AlertTitle>
-            <Trans>Authorization defaults required</Trans>
-          </AlertTitle>
+          <AlertTitle>Authorization defaults required</AlertTitle>
           <AlertDescription>
-            <Trans>Configure the organization, governance, board, and execution roles before creating a record.</Trans>{' '}
+            Configure the organization, governance, board, and execution roles before creating a record.{' '}
             <Link className="font-medium underline" to={settingsPath}>
-              <Trans>Open Authorization defaults</Trans>
+              Open Authorization defaults
             </Link>
           </AlertDescription>
         </Alert>
@@ -191,13 +187,11 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
 
       {loaderData.profileNeedsUpgrade && (
         <Alert className="mb-6">
-          <AlertTitle>
-            <Trans>Authorization defaults need review</Trans>
-          </AlertTitle>
+          <AlertTitle>Authorization defaults need review</AlertTitle>
           <AlertDescription>
-            <Trans>The saved defaults use an earlier certificate version.</Trans>{' '}
+            The saved defaults use an earlier certificate version.{' '}
             <Link className="font-medium underline" to={settingsPath}>
-              <Trans>Review Authorization defaults</Trans>
+              Review Authorization defaults
             </Link>
           </AlertDescription>
         </Alert>
@@ -210,7 +204,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
               <Button asChild size="sm" variant="outline">
                 <Link to={settingsPath}>
                   <Settings2Icon className="mr-2 h-4 w-4" />
-                  <Trans>Edit defaults</Trans>
+                  Edit defaults
                 </Link>
               </Button>
             }
@@ -236,7 +230,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
                 ) : (
                   <FilePlus2Icon className="mr-2 h-4 w-4" />
                 )}
-                <Trans>Create review draft</Trans>
+                Create review draft
               </Button>
             </div>
           </Form>
