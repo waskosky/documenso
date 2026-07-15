@@ -86,7 +86,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   return {
     ...(await getProfileState(team.id)),
-    defaultDate: new Date().toISOString().slice(0, 10),
     externalId: `board-web-${randomUUID()}`,
   };
 }
@@ -227,10 +226,6 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
 
           <Form className="mt-8" method="post">
             <BoardAuthorizationDecisionForm
-              defaultValues={{
-                actionDate: loaderData.defaultDate,
-                certificateDate: loaderData.defaultDate,
-              }}
               externalId={externalId}
               resolutionDisposition={loaderData.profileDefaults.resolutionDisposition}
             />
