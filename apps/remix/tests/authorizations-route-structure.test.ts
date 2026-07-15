@@ -97,6 +97,13 @@ assert.doesNotMatch(
   /defaultDate|new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/,
   'legal action and certificate dates must be entered explicitly instead of inferred from the server timezone',
 );
+assert.match(
+  newAuthorizationRoute,
+  /Board resolution and secretary certificate<\/p>/,
+  'internal board intake copy must not depend on an uncompiled translation catalog entry',
+);
+assert.match(newAuthorizationRoute, /Edit defaults\s*<\/Link>/);
+assert.match(newAuthorizationRoute, /Create review draft\s*<\/Button>/);
 
 const authorizationDetailRoute = readFileSync(path.join(routeDirectory, 'authorizations.$id._index.tsx'), 'utf8');
 
@@ -122,3 +129,5 @@ assert.match(
   /creationState !== 'review'/,
   'a warning-state envelope must not present an enabled send action',
 );
+assert.match(authorizationDetailRoute, /Review draft created\s*<\/AlertTitle>/);
+assert.match(authorizationDetailRoute, /No email was sent\.\s*<\/AlertDescription>/);
