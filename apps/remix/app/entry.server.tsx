@@ -11,6 +11,7 @@ import type { AppLoadContext, EntryContext } from 'react-router';
 import { ServerRouter } from 'react-router';
 
 import { langCookie } from './storage/lang-cookie.server';
+import { ensureNoTransformCacheControl } from './utils/streaming-response-headers';
 
 export const streamTimeout = 5_000;
 
@@ -56,6 +57,9 @@ export default async function handleRequest(
           const stream = createReadableStreamFromReadable(body);
 
           responseHeaders.set('Content-Type', 'text/html');
+
+          // Preserve React's streamed Suspense markers through intermediary proxies.
+          ensureNoTransformCacheControl(responseHeaders);
 
           resolve(
             new Response(stream, {
