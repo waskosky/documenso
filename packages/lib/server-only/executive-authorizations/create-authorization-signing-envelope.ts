@@ -21,7 +21,10 @@ import {
 } from './build-authorization-envelope-plan';
 import { generateAuthorizationPdf } from './generate-authorization-pdf';
 import { normalizeAuthorizationSigners } from './stored-signers';
-import { type AuthorizationStatusRecipient, buildAuthorizationStatusUpdate } from './sync-authorization-status';
+import {
+  type AuthorizationStatusRecipient,
+  buildAuthorizationStatusUpdate,
+} from './sync-authorization-status';
 import type { AuthorizationSigner, AuthorizationTemplateKey } from './types';
 
 type CreateAuthorizationSigningEnvelopeOptions = {

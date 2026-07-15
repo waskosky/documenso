@@ -1,13 +1,18 @@
-import type { BoardResolutionCertificateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
 import type { ReactNode } from 'react';
 
-const actionMethodLabels: Record<BoardResolutionCertificateProfilePayload['actionMethod'], string> = {
-  MEETING: 'Board meeting',
-  UNANIMOUS_WRITTEN_CONSENT: 'Unanimous written consent',
-  WRITTEN_CONSENT: 'Written consent',
-};
+import type { BoardResolutionCertificateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
 
-const dispositionLabels: Record<BoardResolutionCertificateProfilePayload['resolutionDisposition'], string> = {
+const actionMethodLabels: Record<BoardResolutionCertificateProfilePayload['actionMethod'], string> =
+  {
+    MEETING: 'Board meeting',
+    UNANIMOUS_WRITTEN_CONSENT: 'Unanimous written consent',
+    WRITTEN_CONSENT: 'Written consent',
+  };
+
+const dispositionLabels: Record<
+  BoardResolutionCertificateProfilePayload['resolutionDisposition'],
+  string
+> = {
   APPROVED_REQUIRED_VOTE: 'Approved by required vote',
   APPROVED_UNANIMOUSLY: 'Approved unanimously',
   NOT_APPROVED: 'Not approved',
@@ -23,10 +28,10 @@ export const AuthorizationProfileSummary = ({
   <section aria-labelledby="authorization-defaults-heading" className="border-y py-6">
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 className="font-semibold text-lg" id="authorization-defaults-heading">
+        <h2 className="text-lg font-semibold" id="authorization-defaults-heading">
           Authorization defaults
         </h2>
-        <p className="mt-1 text-muted-foreground text-sm">Applied from the saved team profile</p>
+        <p className="mt-1 text-sm text-muted-foreground">Applied from the saved team profile</p>
       </div>
       {actions}
     </div>
@@ -34,7 +39,10 @@ export const AuthorizationProfileSummary = ({
     <div className="mt-5 grid gap-x-8 gap-y-6 lg:grid-cols-3">
       <SummaryGroup title="Organization">
         <SummaryItem label="Legal name" value={profile.companyLegalName} />
-        <SummaryItem label="Jurisdiction and entity" value={`${profile.jurisdiction} ${profile.entityType}`} />
+        <SummaryItem
+          label="Jurisdiction and entity"
+          value={`${profile.jurisdiction} ${profile.entityType}`}
+        />
         <SummaryItem label="Governing body" value={profile.governingBodyName} />
       </SummaryGroup>
 
@@ -58,7 +66,7 @@ export const AuthorizationProfileSummary = ({
     </div>
 
     <div className="mt-6 border-t pt-5">
-      <h3 className="font-medium text-sm">Board signers</h3>
+      <h3 className="text-sm font-medium">Board signers</h3>
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         {profile.directors.map((director, index) => (
           <div className="min-w-0 border-l-2 pl-3 text-sm" key={`${director.email}-${index}`}>
@@ -73,7 +81,7 @@ export const AuthorizationProfileSummary = ({
 
 const SummaryGroup = ({ children, title }: { children: ReactNode; title: string }) => (
   <div className="min-w-0">
-    <h3 className="font-medium text-sm">{title}</h3>
+    <h3 className="text-sm font-medium">{title}</h3>
     <dl className="mt-3 space-y-3">{children}</dl>
   </div>
 );
