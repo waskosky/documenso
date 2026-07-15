@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { createProfiledExecutiveAuthorization } from './create-profiled-executive-authorization';
+import { buildAuthorizationProfileRevision } from './profile-revision';
 
 const templateKey = 'board_resolution_secretary_certificate' as const;
 const profilePayload = {
@@ -36,8 +37,15 @@ const decisionPayload = {
   specificAction: 'the example transaction',
   specificTerms: 'on the terms presented to the Board',
 };
+const profileRecord = {
+  id: 'profile_example',
+  payloadDefaults: profilePayload,
+  templateVersion: 2,
+  updatedAt: new Date('2026-07-15T20:00:00.000Z'),
+};
 
 const input = {
+  expectedProfileRevision: buildAuthorizationProfileRevision(profileRecord),
   externalId: 'agent-request:example-approval-2026-07-11',
   generateDocument: true,
   notes: 'Created through the executive-assistant API.',
@@ -86,7 +94,8 @@ void (async () => {
       return Promise.resolve({ id: 'envelope_example' });
     },
     getAuthorization: () => Promise.resolve(readyAuthorization as never),
-    getProfile: () => Promise.resolve({ payloadDefaults: profilePayload, templateVersion: 2 }),
+    getAuthorizationByExternalId: () => Promise.resolve(null),
+    getProfile: () => Promise.resolve(profileRecord),
   };
 
   const result = await createProfiledExecutiveAuthorization(input, dependencies);
@@ -101,6 +110,49 @@ void (async () => {
   assert.equal(result.generationError, null);
   assert.equal(result.integrityError, null);
   assert.equal(result.authorization, readyAuthorization);
+
+  await assert.rejects(
+    () =>
+      createProfiledExecutiveAuthorization(
+        { ...input, expectedProfileRevision: 'stale-profile-revision' },
+        dependencies,
+      ),
+    /authorization defaults changed.*reload/i,
+  );
+  await assert.rejects(
+    () => createProfiledExecutiveAuthorization({ ...input, expectedProfileRevision: '' }, dependencies),
+    /authorization defaults changed.*reload/i,
+  );
+
+  let retryCreateInput: Record<string, unknown> | undefined;
+  let retryProfileCalls = 0;
+  const retryResult = await createProfiledExecutiveAuthorization(
+    { ...input, expectedProfileRevision: 'stale-profile-revision', generateDocument: false },
+    {
+      ...dependencies,
+      createAuthorization: (value) => {
+        retryCreateInput = value;
+        return Promise.resolve({ id: 'authorization_example' });
+      },
+      getAuthorizationByExternalId: () =>
+        Promise.resolve({
+          id: 'authorization_example',
+          payload: { ...profilePayload, ...decisionPayload },
+          templateKey,
+          templateVersion: 2,
+        }),
+      getAuthorization: () => Promise.resolve({ ...readyAuthorization, envelope: null, status: 'DRAFT' } as never),
+      getProfile: () => {
+        retryProfileCalls += 1;
+        return Promise.resolve(profileRecord);
+      },
+    },
+  );
+
+  assert.equal(retryProfileCalls, 0);
+  assert.deepEqual(retryCreateInput?.payload, { ...profilePayload, ...decisionPayload });
+  assert.equal(retryCreateInput?.templateVersion, 2);
+  assert.equal(retryResult.authorization.status, 'DRAFT');
 
   const withoutEnvelope = await createProfiledExecutiveAuthorization(
     { ...input, generateDocument: false },
@@ -157,7 +209,7 @@ void (async () => {
     () =>
       createProfiledExecutiveAuthorization(input, {
         ...dependencies,
-        getProfile: () => Promise.resolve({ payloadDefaults: profilePayload, templateVersion: 1 }),
+        getProfile: () => Promise.resolve({ ...profileRecord, templateVersion: 1 }),
       }),
     /reviewed and upgraded to version 2/i,
   );

@@ -184,6 +184,7 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
     !authorization.envelope;
   const canSend =
     canManage &&
+    creationState !== 'review' &&
     authorization.status === ExecutiveAuthorizationStatus.READY &&
     Boolean(authorization.envelope);
   const canRefresh = canManage && Boolean(authorization.envelope);
@@ -272,7 +273,9 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
             <Trans>Review draft created</Trans>
           </AlertTitle>
           <AlertDescription>
-            <Trans>The authorization record and signing envelope are ready for review. No email was sent.</Trans>
+            <Trans>
+              The authorization record and signing envelope are ready for review. No email was sent.
+            </Trans>
           </AlertDescription>
         </Alert>
       )}
@@ -283,7 +286,10 @@ export default function AuthorizationDetailPage({ loaderData }: Route.ComponentP
             <Trans>Authorization saved; document needs review</Trans>
           </AlertTitle>
           <AlertDescription>
-            <Trans>The durable record was created, but its signing envelope needs attention. No email was sent.</Trans>
+            <Trans>
+              The durable record was created, but its signing envelope needs attention. No email was
+              sent.
+            </Trans>
           </AlertDescription>
         </Alert>
       )}

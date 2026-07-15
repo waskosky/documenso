@@ -1,18 +1,21 @@
-import { randomUUID } from 'node:crypto';
-
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
 import { ArrowLeftIcon, FilePlus2Icon, Loader2Icon, Settings2Icon } from 'lucide-react';
+import { randomUUID } from 'node:crypto';
 import { Form, Link, redirect, useActionData, useNavigation } from 'react-router';
 
 import { getSession } from '@documenso/auth/server/lib/utils/get-session';
 import { createProfiledExecutiveAuthorization } from '@documenso/lib/server-only/executive-authorizations/create-profiled-executive-authorization';
 import { getExecutiveAuthorizationProfile } from '@documenso/lib/server-only/executive-authorizations/get-executive-authorization-profile';
 import { parseAuthorizationTemplateProfilePayload } from '@documenso/lib/server-only/executive-authorizations/profile-payload';
+import { buildAuthorizationProfileRevision } from '@documenso/lib/server-only/executive-authorizations/profile-revision';
 import { getAuthorizationTemplate } from '@documenso/lib/server-only/executive-authorizations/templates';
 import { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
-import { type ApiRequestMetadata, extractRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import {
+  type ApiRequestMetadata,
+  extractRequestMetadata,
+} from '@documenso/lib/universal/extract-request-metadata';
 import { formatAuthorizationsPath } from '@documenso/lib/utils/teams';
 import { Alert, AlertDescription, AlertTitle } from '@documenso/ui/primitives/alert';
 import { Button } from '@documenso/ui/primitives/button';
@@ -64,18 +67,20 @@ const getProfileState = async (teamId: number) => {
     templateKey,
   });
   const profileNeedsUpgrade = Boolean(profile && profile.templateVersion !== template.version);
+  const profileDefaults =
+    profile?.payloadDefaults && !profileNeedsUpgrade
+      ? parseAuthorizationTemplateProfilePayload({
+          payload: profile.payloadDefaults,
+          templateKey,
+          templateVersion: template.version,
+        })
+      : null;
 
   return {
-    profileDefaults:
-      profile?.payloadDefaults && !profileNeedsUpgrade
-        ? parseAuthorizationTemplateProfilePayload({
-            payload: profile.payloadDefaults,
-            templateKey,
-            templateVersion: template.version,
-          })
-        : null,
+    profileDefaults,
     profileExists: Boolean(profile?.payloadDefaults),
     profileNeedsUpgrade,
+    profileRevision: profileDefaults && profile ? buildAuthorizationProfileRevision(profile) : null,
   };
 };
 
@@ -105,22 +110,12 @@ export async function action({ params, request }: Route.ActionArgs) {
   const externalId = String(formData.get('externalId') ?? '').trim();
 
   try {
-    const profileState = await getProfileState(team.id);
-
-    if (!profileState.profileDefaults) {
-      throw new Error(
-        profileState.profileNeedsUpgrade
-          ? 'Authorization defaults must be reviewed before creating a new record.'
-          : 'Authorization defaults must be configured before creating a new record.',
-      );
-    }
-
-    const input = buildBoardAuthorizationDecisionInputFromFormData(
-      formData,
-      profileState.profileDefaults.resolutionDisposition,
-    );
+    const input = buildBoardAuthorizationDecisionInputFromFormData(formData);
     const result = await createProfiledExecutiveAuthorization({
-      ...input,
+      expectedProfileRevision: input.profileRevision,
+      externalId: input.externalId,
+      notes: input.notes,
+      payload: input.payload,
       requestMetadata: buildRequestMetadata({ request, user }),
       teamId: team.id,
       templateKey,
@@ -137,7 +132,9 @@ export async function action({ params, request }: Route.ActionArgs) {
       !result.integrityError;
     const createdState = isReviewReady ? 'ready' : 'review';
 
-    throw redirect(`${formatAuthorizationsPath(team.url)}/${result.authorization.id}?created=${createdState}`);
+    throw redirect(
+      `${formatAuthorizationsPath(team.url)}/${result.authorization.id}?created=${createdState}`,
+    );
   } catch (error) {
     if (error instanceof Response) {
       throw error;
@@ -171,7 +168,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
         <h1 className="text-3xl font-semibold">
           <Trans>New board authorization</Trans>
         </h1>
-        <p className="mt-2 text-muted-foreground text-sm">
+        <p className="mt-2 text-sm text-muted-foreground">
           <Trans>Board resolution and secretary certificate</Trans>
         </p>
       </div>
@@ -191,7 +188,10 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
             <Trans>Authorization defaults required</Trans>
           </AlertTitle>
           <AlertDescription>
-            <Trans>Configure the organization, governance, board, and execution roles before creating a record.</Trans>{' '}
+            <Trans>
+              Configure the organization, governance, board, and execution roles before creating a
+              record.
+            </Trans>{' '}
             <Link className="font-medium underline" to={settingsPath}>
               <Trans>Open Authorization defaults</Trans>
             </Link>
@@ -213,7 +213,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
         </Alert>
       )}
 
-      {loaderData.profileDefaults && (
+      {loaderData.profileDefaults && loaderData.profileRevision && (
         <>
           <AuthorizationProfileSummary
             actions={
@@ -230,6 +230,7 @@ export default function NewAuthorizationPage({ loaderData, params }: Route.Compo
           <Form className="mt-8" method="post">
             <BoardAuthorizationDecisionForm
               externalId={externalId}
+              profileRevision={loaderData.profileRevision}
               resolutionDisposition={loaderData.profileDefaults.resolutionDisposition}
             />
 

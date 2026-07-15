@@ -1,6 +1,8 @@
 import { ExecutiveAuthorizationStatus } from '@prisma/client';
+import { z } from 'zod';
 
 import type { ApiRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
+import { prisma } from '@documenso/prisma';
 
 import { assertAuthorizationEnvelopeIntegrity } from './assert-authorization-envelope-integrity';
 import { createAuthorizationSigningEnvelope } from './create-authorization-signing-envelope';
@@ -8,6 +10,8 @@ import { createExecutiveAuthorization } from './create-executive-authorization';
 import { getExecutiveAuthorization } from './get-executive-authorization';
 import { getExecutiveAuthorizationProfile } from './get-executive-authorization-profile';
 import { mergeAuthorizationProfilePayload } from './profile-payload';
+import { buildAuthorizationProfileRevision } from './profile-revision';
+import { parseAuthorizationTemplatePayload } from './schema';
 import { normalizeAuthorizationSigners } from './stored-signers';
 import { getAuthorizationTemplate } from './templates';
 import type { AuthorizationTemplateKey } from './types';
@@ -42,10 +46,18 @@ type ProfiledExecutiveAuthorizationDependencies = {
     id: string;
     teamId: number;
   }) => Promise<ProfiledExecutiveAuthorizationRecord | null>;
-  getProfile: (input: {
-    teamId: number;
-    templateKey: AuthorizationTemplateKey;
-  }) => Promise<{ payloadDefaults?: unknown; templateVersion?: number } | null>;
+  getAuthorizationByExternalId: (input: { externalId: string; teamId: number }) => Promise<{
+    id: string;
+    payload: unknown;
+    templateKey: string;
+    templateVersion: number;
+  } | null>;
+  getProfile: (input: { teamId: number; templateKey: AuthorizationTemplateKey }) => Promise<{
+    id: string;
+    payloadDefaults?: unknown;
+    templateVersion?: number;
+    updatedAt?: Date;
+  } | null>;
 };
 
 const defaultDependencies: ProfiledExecutiveAuthorizationDependencies = {
@@ -53,11 +65,27 @@ const defaultDependencies: ProfiledExecutiveAuthorizationDependencies = {
   createAuthorization: createExecutiveAuthorization,
   createEnvelope: createAuthorizationSigningEnvelope,
   getAuthorization: getExecutiveAuthorization,
+  getAuthorizationByExternalId: async ({ externalId, teamId }) =>
+    await prisma.executiveAuthorization.findUnique({
+      select: {
+        id: true,
+        payload: true,
+        templateKey: true,
+        templateVersion: true,
+      },
+      where: {
+        teamId_externalId: {
+          externalId,
+          teamId,
+        },
+      },
+    }),
   getProfile: getExecutiveAuthorizationProfile,
 };
 
 export const createProfiledExecutiveAuthorization = async (
   {
+    expectedProfileRevision,
     externalId,
     generateDocument = true,
     notes,
@@ -67,6 +95,7 @@ export const createProfiledExecutiveAuthorization = async (
     templateKey,
     userId,
   }: {
+    expectedProfileRevision?: string;
     externalId: string;
     generateDocument?: boolean;
     notes?: string;
@@ -78,35 +107,68 @@ export const createProfiledExecutiveAuthorization = async (
   },
   dependencies: ProfiledExecutiveAuthorizationDependencies = defaultDependencies,
 ) => {
-  const profile = await dependencies.getProfile({
-    teamId,
-    templateKey,
-  });
+  const existingAuthorization = externalId
+    ? await dependencies.getAuthorizationByExternalId({ externalId, teamId })
+    : null;
+  let mergedPayload: unknown;
+  let templateVersion: number;
 
-  if (!profile?.payloadDefaults) {
-    throw new Error(`Authorization defaults are not configured for template "${templateKey}".`);
+  if (existingAuthorization) {
+    if (existingAuthorization.templateKey !== templateKey) {
+      throw new Error(`External ID "${externalId}" belongs to a different authorization template.`);
+    }
+
+    templateVersion = existingAuthorization.templateVersion;
+    mergedPayload = parseAuthorizationTemplatePayload({
+      payload: {
+        ...z.record(z.unknown()).parse(existingAuthorization.payload),
+        ...z.record(z.unknown()).parse(payload),
+      },
+      templateKey,
+      templateVersion,
+    });
+  } else {
+    const profile = await dependencies.getProfile({
+      teamId,
+      templateKey,
+    });
+
+    if (!profile?.payloadDefaults) {
+      throw new Error(`Authorization defaults are not configured for template "${templateKey}".`);
+    }
+
+    templateVersion = getAuthorizationTemplate(templateKey).version;
+
+    if (profile.templateVersion !== templateVersion) {
+      throw new Error(
+        `Authorization defaults for template "${templateKey}" must be reviewed and upgraded to version ${templateVersion}.`,
+      );
+    }
+
+    if (
+      expectedProfileRevision !== undefined &&
+      buildAuthorizationProfileRevision(profile) !== expectedProfileRevision
+    ) {
+      throw new Error(
+        'Authorization defaults changed after this form was loaded. Reload and review them again.',
+      );
+    }
+
+    mergedPayload = mergeAuthorizationProfilePayload({
+      payload,
+      profilePayload: profile.payloadDefaults,
+      templateKey,
+      templateVersion,
+    });
   }
 
-  const templateVersion = getAuthorizationTemplate(templateKey).version;
-
-  if (profile.templateVersion !== templateVersion) {
-    throw new Error(
-      `Authorization defaults for template "${templateKey}" must be reviewed and upgraded to version ${templateVersion}.`,
-    );
-  }
-
-  const mergedPayload = mergeAuthorizationProfilePayload({
-    payload,
-    profilePayload: profile.payloadDefaults,
-    templateKey,
-    templateVersion,
-  });
   const authorization = await dependencies.createAuthorization({
     externalId,
     notes,
     payload: mergedPayload,
     teamId,
     templateKey,
+    templateVersion,
     userId,
   });
   let generationError: string | null = null;

@@ -24,10 +24,12 @@ type BoardAuthorizationDecisionDefaults = Partial<
 export const BoardAuthorizationDecisionForm = ({
   defaultValues = {},
   externalId,
+  profileRevision,
   resolutionDisposition,
 }: {
   defaultValues?: BoardAuthorizationDecisionDefaults;
   externalId: string;
+  profileRevision: string;
   resolutionDisposition: BoardResolutionCertificatePayload['resolutionDisposition'];
 }) => {
   const isNotApproved = resolutionDisposition === 'NOT_APPROVED';
@@ -35,13 +37,20 @@ export const BoardAuthorizationDecisionForm = ({
   return (
     <>
       <input name="externalId" type="hidden" value={externalId} />
+      <input name="profileRevision" type="hidden" value={profileRevision} />
 
       <section aria-labelledby="decision-record-heading" className="border-t pt-6">
-        <h2 className="font-semibold text-lg" id="decision-record-heading">
+        <h2 className="text-lg font-semibold" id="decision-record-heading">
           Decision record
         </h2>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
-          <Field defaultValue={defaultValues.actionDate} label="Action date" name="actionDate" required type="date" />
+          <Field
+            defaultValue={defaultValues.actionDate}
+            label="Action date"
+            name="actionDate"
+            required
+            type="date"
+          />
           <Field
             defaultValue={defaultValues.certificateDate}
             label="Certificate date"
@@ -50,7 +59,12 @@ export const BoardAuthorizationDecisionForm = ({
             type="date"
           />
           <div className="md:col-span-2">
-            <Field defaultValue={defaultValues.actionTitle} label="Action title" name="actionTitle" required />
+            <Field
+              defaultValue={defaultValues.actionTitle}
+              label="Action title"
+              name="actionTitle"
+              required
+            />
           </div>
           <div className="md:col-span-2">
             <TextField
@@ -72,7 +86,7 @@ export const BoardAuthorizationDecisionForm = ({
       </section>
 
       <section aria-labelledby="decision-terms-heading" className="mt-8 border-t pt-6">
-        <h2 className="font-semibold text-lg" id="decision-terms-heading">
+        <h2 className="text-lg font-semibold" id="decision-terms-heading">
           Authorization terms
         </h2>
         <div className="mt-5 grid gap-5">
@@ -120,11 +134,15 @@ export const BoardAuthorizationDecisionForm = ({
       </section>
 
       <section aria-labelledby="internal-record-heading" className="mt-8 border-t pt-6">
-        <h2 className="font-semibold text-lg" id="internal-record-heading">
+        <h2 className="text-lg font-semibold" id="internal-record-heading">
           Internal record
         </h2>
         <div className="mt-5">
-          <TextField defaultValue={defaultValues.notes ?? undefined} label="Internal notes (optional)" name="notes" />
+          <TextField
+            defaultValue={defaultValues.notes ?? undefined}
+            label="Internal notes (optional)"
+            name="notes"
+          />
         </div>
       </section>
     </>

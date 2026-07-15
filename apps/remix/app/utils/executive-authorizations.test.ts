@@ -156,6 +156,7 @@ assert.equal(legacyParsed.payload.investorCondition, 'Legacy condition');
 
 const decisionFormData = new FormData();
 decisionFormData.set('externalId', 'board-web-12345678-1234-4123-8123-123456789abc');
+decisionFormData.set('profileRevision', 'profile-revision-example');
 decisionFormData.set('actionDate', '2026-07-15');
 decisionFormData.set('certificateDate', '2026-07-16');
 decisionFormData.set('actionTitle', 'Approve a distribution agreement');
@@ -188,6 +189,7 @@ assert.deepEqual(decisionInput, {
     specificAction: 'enter into the proposed distribution agreement',
     specificTerms: 'substantially on the terms presented to the Board',
   },
+  profileRevision: 'profile-revision-example',
 });
 assert.equal('companyLegalName' in decisionInput.payload, false);
 assert.equal('quorumRequiredCount' in decisionInput.payload, false);
