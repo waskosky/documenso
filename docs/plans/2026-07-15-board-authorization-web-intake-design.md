@@ -64,7 +64,6 @@ The route uses the template profile and existing server-only creation service ra
 
 ## Deferred Work
 
-- Add “Duplicate as new” from an existing authorization after the initial flow is proven.
+- Add "Duplicate as new" from an existing authorization after the initial flow is proven.
 - Add optional integrations that mirror authorization status into other operational systems.
 - Revisit email delivery only after the separate SES investigation is resolved; this feature does not change transport configuration.
-

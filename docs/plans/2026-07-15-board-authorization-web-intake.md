@@ -22,7 +22,7 @@ Add assertions that the adapter parses all decision fields, preserves a stable e
 
 **Step 2: Run the test to verify it fails**
 
-Run: `pnpm exec tsx apps/remix/app/utils/executive-authorizations.test.ts`
+Run: `node_modules/.bin/tsx apps/remix/app/utils/executive-authorizations.test.ts`
 
 Expected: FAIL because `buildBoardAuthorizationDecisionInputFromFormData` is not exported.
 
@@ -32,7 +32,7 @@ Add `buildBoardAuthorizationDecisionInputFromFormData(formData, resolutionDispos
 
 **Step 4: Run the test to verify it passes**
 
-Run: `pnpm exec tsx apps/remix/app/utils/executive-authorizations.test.ts`
+Run: `node_modules/.bin/tsx apps/remix/app/utils/executive-authorizations.test.ts`
 
 Expected: PASS.
 
@@ -60,8 +60,8 @@ Render both components to static markup. Assert that the intake contains the var
 Run:
 
 ```bash
-pnpm exec tsx apps/remix/app/components/executive-authorizations/board-authorization-decision-form.test.tsx
-pnpm exec tsx apps/remix/app/components/executive-authorizations/authorization-profile-summary.test.tsx
+npm exec -w @documenso/remix -- vite-node --config vite.config.ts app/components/executive-authorizations/board-authorization-decision-form.test.tsx
+npm exec -w @documenso/remix -- vite-node --config vite.config.ts app/components/executive-authorizations/authorization-profile-summary.test.tsx
 ```
 
 Expected: FAIL because the components do not exist.
@@ -95,7 +95,7 @@ Assert that the route uses `createProfiledExecutiveAuthorization`, the decision-
 
 **Step 2: Run the test to verify it fails**
 
-Run: `pnpm exec tsx apps/remix/tests/authorizations-route-structure.test.ts`
+Run: `node_modules/.bin/tsx apps/remix/tests/authorizations-route-structure.test.ts`
 
 Expected: FAIL on the new route architecture assertions.
 
@@ -108,9 +108,9 @@ Generate a UUID-based external reference in the loader, block a missing/outdated
 Run:
 
 ```bash
-pnpm exec tsx apps/remix/tests/authorizations-route-structure.test.ts
-pnpm exec tsx apps/remix/app/utils/executive-authorizations.test.ts
-pnpm exec tsx packages/lib/server-only/executive-authorizations/create-profiled-executive-authorization.test.ts
+node_modules/.bin/tsx apps/remix/tests/authorizations-route-structure.test.ts
+node_modules/.bin/tsx apps/remix/app/utils/executive-authorizations.test.ts
+node_modules/.bin/tsx packages/lib/server-only/executive-authorizations/create-profiled-executive-authorization.test.ts
 ```
 
 Expected: PASS.
@@ -134,7 +134,7 @@ Assert that the detail loader exposes `externalId` and parses the `created` quer
 
 **Step 2: Run the test to verify it fails**
 
-Run: `pnpm exec tsx apps/remix/tests/authorizations-route-structure.test.ts`
+Run: `node_modules/.bin/tsx apps/remix/tests/authorizations-route-structure.test.ts`
 
 Expected: FAIL on detail result-state assertions.
 
@@ -144,7 +144,7 @@ Return the external reference and a constrained creation state from the loader. 
 
 **Step 4: Run the test to verify it passes**
 
-Run: `pnpm exec tsx apps/remix/tests/authorizations-route-structure.test.ts`
+Run: `node_modules/.bin/tsx apps/remix/tests/authorizations-route-structure.test.ts`
 
 Expected: PASS.
 
@@ -185,4 +185,3 @@ Port the source commits to the deployment branch, run its checks/build, push it,
 **Step 6: Verify production and log it**
 
 Test the authenticated production routes at desktop and mobile widths, verify no request sends email on create, and append the route, commits, validation evidence, and follow-up state to `docs/executive-assistant/board-authorizations-log.md`.
-
