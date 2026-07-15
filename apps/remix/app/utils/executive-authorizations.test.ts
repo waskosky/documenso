@@ -4,6 +4,7 @@ import type { AuthorizationTemplateSignerRole } from '@documenso/lib/server-only
 
 import {
   buildAuthorizationSignerSlots,
+  buildBoardAuthorizationDecisionInputFromFormData,
   buildBoardAuthorizationInputFromFormData,
   buildBoardAuthorizationProfileInputFromFormData,
   getAuthorizationSignerFieldName,
@@ -152,5 +153,50 @@ const legacyParsed = buildBoardAuthorizationInputFromFormData(legacyFormData, si
 assert.equal(legacyParsed.templateVersion, 1);
 assert.equal(legacyParsed.payload.resolutionTerms, 'Legacy terms');
 assert.equal(legacyParsed.payload.investorCondition, 'Legacy condition');
+
+const decisionFormData = new FormData();
+decisionFormData.set('externalId', 'board-web-12345678-1234-4123-8123-123456789abc');
+decisionFormData.set('actionDate', '2026-07-15');
+decisionFormData.set('certificateDate', '2026-07-16');
+decisionFormData.set('actionTitle', 'Approve a distribution agreement');
+decisionFormData.set('matterDescription', 'Review and approve the proposed distribution agreement.');
+decisionFormData.set('materialsReviewed', 'Distribution agreement\n  Financial summary  \n\nBoard memorandum');
+decisionFormData.set('specificAction', 'enter into the proposed distribution agreement');
+decisionFormData.set('specificTerms', 'substantially on the terms presented to the Board');
+decisionFormData.set('deliveryRecipient', 'Example Distributor');
+decisionFormData.set('deliveryCondition', 'after the authorized officer approves non-material changes');
+decisionFormData.set('ratifyPriorActions', 'true');
+decisionFormData.set('notes', 'Prepared from the July board packet.');
+decisionFormData.set('companyLegalName', 'Malicious Company Override');
+decisionFormData.set('quorumRequiredCount', '1');
+decisionFormData.set('signer-director-0-email', 'attacker@example.test');
+
+const decisionInput = buildBoardAuthorizationDecisionInputFromFormData(decisionFormData, 'APPROVED_UNANIMOUSLY');
+
+assert.deepEqual(decisionInput, {
+  externalId: 'board-web-12345678-1234-4123-8123-123456789abc',
+  notes: 'Prepared from the July board packet.',
+  payload: {
+    actionDate: '2026-07-15',
+    actionTitle: 'Approve a distribution agreement',
+    certificateDate: '2026-07-16',
+    deliveryCondition: 'after the authorized officer approves non-material changes',
+    deliveryRecipient: 'Example Distributor',
+    materialsReviewed: ['Distribution agreement', 'Financial summary', 'Board memorandum'],
+    matterDescription: 'Review and approve the proposed distribution agreement.',
+    ratifyPriorActions: true,
+    specificAction: 'enter into the proposed distribution agreement',
+    specificTerms: 'substantially on the terms presented to the Board',
+  },
+});
+assert.equal('companyLegalName' in decisionInput.payload, false);
+assert.equal('quorumRequiredCount' in decisionInput.payload, false);
+assert.equal('directors' in decisionInput.payload, false);
+
+const rejectedDecisionInput = buildBoardAuthorizationDecisionInputFromFormData(decisionFormData, 'NOT_APPROVED');
+
+assert.equal(rejectedDecisionInput.payload.ratifyPriorActions, false);
+assert.equal('deliveryRecipient' in rejectedDecisionInput.payload, false);
+assert.equal('deliveryCondition' in rejectedDecisionInput.payload, false);
 
 console.log('executive authorization form utility tests passed');
