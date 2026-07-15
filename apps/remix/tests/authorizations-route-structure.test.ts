@@ -96,7 +96,7 @@ assert.doesNotMatch(
 );
 assert.match(
   newAuthorizationRoute,
-  /Board resolution and secretary certificate<\/p>/,
+  /Board resolution and secretary certificate\s*<\/p>/,
   'internal board intake copy must not depend on an uncompiled translation catalog entry',
 );
 assert.match(newAuthorizationRoute, /Edit defaults\s*<\/Link>/);
